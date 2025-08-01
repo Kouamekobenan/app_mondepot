@@ -1,0 +1,30 @@
+node_modules
+# Node.js
+node_modules/
+dist/
+.build/
+.env
+.env.*  # Pour .env.local ou autres
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+out/
+release/
+
+# Electron packaging
+*.asar
+
+# Others
+coverage/

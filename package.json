@@ -1,0 +1,33 @@
+{
+  "name": "app_desktop",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
+    "dev:renderer": "cd renderer && next dev",
+    "dev:electron": "npm run build:electron && electron .",
+    "build:electron": "tsc",
+    "build:renderer": "cd renderer && next build",
+    "build": "npm run build:electron && npm run build:renderer",
+    "start": "electron dist/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "electron": "^36.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3",
+    "wait-on": "^8.0.3"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^4.0.0",
+    "electron-store": "^10.1.0",
+    "next": "^15.3.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-select": "^5.10.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
