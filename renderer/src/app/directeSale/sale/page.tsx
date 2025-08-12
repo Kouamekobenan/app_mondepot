@@ -37,11 +37,11 @@ const SalesMetricCard: React.FC<{
 }> = ({ title, value, icon, href = "#", subtitle, variant = "primary" }) => {
   const variantClasses = {
     primary:
-      "border-orange-400 bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-150",
+      "border-orange-400 border-2 border-dashed bg-gradient-to-br from-orange-50 to-orange-100",
     secondary:
-      "border-blue-400 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150",
+      "border-orange-100 bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-150",
     accent:
-      "border-green-400 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-150",
+      "border-orange-100 bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-150",
   };
 
   return (
@@ -53,7 +53,7 @@ const SalesMetricCard: React.FC<{
         className={`flex flex-col border rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-200 h-full min-h-[160px] ${variantClasses[variant]}`}
       >
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-white/70 rounded-lg group-hover:bg-white transition-colors duration-200">
+          <div className="p-2 bg-orange-300 rounded-lg group-hover:bg-green-300 transition-colors duration-200">
             {icon}
           </div>
           <h3 className="font-medium text-gray-700 text-sm uppercase tracking-wide">
@@ -197,8 +197,8 @@ const DirectSaleHome: React.FC = () => {
     isLoading: true,
     error: null,
   });
-  const {user} =useAuth()
-  const tenantId =user?.tenantId
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
   const date = new Date();
   const dateDay = formatDate(date);
   // Métriques calculées
@@ -279,14 +279,13 @@ const DirectSaleHome: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Navbar />
-
       <main className="flex-1 overflow-auto">
         {/* En-tête avec métriques */}
         <header className="bg-white border-b border-gray-200 px-6 py-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Tableau de bord des ventes du:{" "}
-              <span className="font-bold text-blue-500">{dateDay}</span>
+              Gestion des ventes du journalier:{" "}
+              <span className="font-bold text-green-500">{dateDay}</span>
             </h1>
             <p className="text-gray-600">
               Gérez et suivez vos ventes directes en temps réel
@@ -296,21 +295,21 @@ const DirectSaleHome: React.FC = () => {
             <SalesMetricCard
               title="Ventes créditées"
               value={salesMetrics.creditSalesCount}
-              icon={<CreditCard size={20} className="text-orange-600" />}
+              icon={<CreditCard size={20} className="text-white" />}
               href="/directeSale/credit"
               variant="primary"
             />
             <SalesMetricCard
               title="Chiffre d'affaires"
               value={`${salesMetrics.totalAmount.toLocaleString()} FCFA`}
-              icon={<TrendingUp size={20} className="text-green-600" />}
+              icon={<TrendingUp size={20} className="text-white" />}
               subtitle="Total journalier"
               variant="secondary"
             />
             <SalesMetricCard
               title="Nombre de ventes"
               value={salesMetrics.totalSalesCount}
-              icon={<Calendar size={20} className="text-blue-600" />}
+              icon={<Calendar size={20} className="text-white" />}
               subtitle="Aujourd'hui"
               variant="accent"
             />

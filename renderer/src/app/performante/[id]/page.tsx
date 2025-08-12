@@ -342,7 +342,7 @@ const Page: React.FC = () => {
               <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
                 Total Livraisons
               </h3>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
+              <p className="text-xl font-bold text-gray-900 mt-2">
                 {monthlyStats.totalDeliveries.toLocaleString()}
               </p>
             </div>
@@ -359,7 +359,7 @@ const Page: React.FC = () => {
               <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
                 Montant Total
               </h3>
-              <p className="text-3xl font-bold text-green-600 mt-2">
+              <p className="text-xl font-bold text-green-600 mt-2">
                 {monthlyStats.totalAmount.toLocaleString()} FCFA
               </p>
             </div>
@@ -368,7 +368,7 @@ const Page: React.FC = () => {
               <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
                 Moyenne/Jour
               </h3>
-              <p className="text-3xl font-bold text-purple-600 mt-2">
+              <p className="text-xl font-bold text-purple-600 mt-2">
                 {monthlyStats.averagePerDay.toLocaleString()} FCFA
               </p>
             </div>
