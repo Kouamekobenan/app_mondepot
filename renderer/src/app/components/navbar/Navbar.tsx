@@ -23,18 +23,15 @@ import {
   BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-
 // Types
 interface User {
   role: "MANAGER" | "CASHIER" | "ADMIN" | string;
 }
-
 interface SubmenuItem {
   href: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   label: string;
 }
-
 interface NavigationItem {
   href: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -42,17 +39,14 @@ interface NavigationItem {
   hasSubmenu?: boolean;
   submenu?: SubmenuItem[];
 }
-
 interface AuthContextType {
   user: User | null;
 }
-
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [activeItem, setActiveItem] = useState<string>("/dashbord");
   const [isProductsOpen, setIsProductsOpen] = useState<boolean>(false);
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState<boolean>(false);
-
   const { user } = useAuth() as AuthContextType;
 
   const toggleSidebar = (): void => setIsOpen((prev) => !prev);
@@ -102,16 +96,16 @@ export default function Navbar() {
     {
       href: "/rapport",
       icon: FileText,
-      label: "Rapports",
+      label: "Rapports des livraisons",
     },
   ];
-
   const actorItems: NavigationItem[] = [
     { href: "/users", icon: UserRound, label: "Utilisateurs" },
     { href: "/fourniseurs", icon: UsersRound, label: "Fournisseurs" },
     { href: "/deliveryPerson", icon: UserPlus, label: "Livreurs" },
+    { href: "/customer", icon: UserRound, label: "Clients" },
+    { href: "/admin", icon: UserRound, label: "Administrateur" },
   ];
-
   const handleItemClick = (item: NavigationItem): void => {
     if (item.hasSubmenu) {
       if (item.href === "/products") {
@@ -135,20 +129,17 @@ export default function Navbar() {
       setIsOpen(false);
     }
   };
-
   const isItemActive = (item: NavigationItem): boolean => {
     if (item.hasSubmenu && item.submenu) {
       return item.submenu.some((subItem) => activeItem === subItem.href);
     }
     return activeItem === item.href;
   };
-
   const isSubmenuOpen = (item: NavigationItem): boolean => {
     if (item.href === "/products") return isProductsOpen;
     if (item.href === "/directeSale") return isDirectSaleOpen;
     return false;
   };
-
   return (
     <>
       {/* Overlay pour mobile */}
@@ -169,7 +160,6 @@ export default function Navbar() {
           {isOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
-
       {/* Sidebar */}
       <aside
         className={`
@@ -184,7 +174,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <div className="relative">
               <Image
-                src="/BoissonTrack.png"
+                src="/logo.png"
                 width={48}
                 height={48}
                 alt="Logo DrinkFlow"
@@ -194,14 +184,13 @@ export default function Navbar() {
             </div>
             <div>
               <h1 className="text-white text-2xl font-bold leading-none">
-                Mon
+                12
                 <span className="text-orange-500 font-serif">Depôt</span>
               </h1>
               <p className="text-gray-400 text-xs mt-1">Système de gestion</p>
             </div>
           </div>
         </div>
-
         {/* Navigation principale */}
         <nav className="flex-1 px-4 py-6 overflow-y-auto">
           <section className="mb-8">
@@ -213,7 +202,6 @@ export default function Navbar() {
                 const Icon = item.icon;
                 const isActive = isItemActive(item);
                 const isSubmenuVisible = isSubmenuOpen(item);
-
                 return (
                   <li key={item.href}>
                     {/* Item principal */}
@@ -328,7 +316,6 @@ export default function Navbar() {
               })}
             </ul>
           </section>
-
           {/* Section Acteurs */}
           {user?.role === "MANAGER" && (
             <section className="mb-8">
@@ -339,7 +326,6 @@ export default function Navbar() {
                 {actorItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeItem === item.href;
-
                   return (
                     <li key={item.href}>
                       <Link
@@ -373,7 +359,6 @@ export default function Navbar() {
             </section>
           )}
         </nav>
-
         {/* Contact Admin - Footer */}
         <div className="px-4 py-6 border-t border-gray-700 bg-gradient-to-r from-gray-800 to-gray-900">
           <h3 className="text-orange-400 font-semibold text-sm uppercase tracking-wider mb-3">

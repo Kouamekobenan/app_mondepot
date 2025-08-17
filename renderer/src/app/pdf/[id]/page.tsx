@@ -1,47 +1,18 @@
 "use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import { Download, Phone, Calendar, Hash } from "lucide-react";
 import { useParams } from "next/navigation";
-import api from "@/app/prisma/api";
+import api, { formatDate } from "@/app/prisma/api";
 import { OrderDto } from "@/app/types/type";
 import Link from "next/link";
-
-const invoiceData = {
-  company: {
-    name: "VOTRE ENTREPRISE",
-    address: "123 Rue de l'Entreprise",
-    city: "Abidjan, Côte d'Ivoire",
-    phone: "+225 0101010101",
-    email: "contact@entreprise.com",
-  },
-  items: [
-    {
-      name: "Boisson Premium",
-      quantity: 2,
-      unitPrice: 1500,
-      description: "Boisson gazeuse premium 500ml",
-    },
-    {
-      name: "Boisson Standard",
-      quantity: 1,
-      unitPrice: 1000,
-      description: "Boisson standard 330ml",
-    },
-    {
-      name: "Eau minérale",
-      quantity: 3,
-      unitPrice: 500,
-      description: "Eau minérale naturelle 1L",
-    },
-  ],
-};
-
+import { useAuth } from "@/app/context/AuthContext";
 export default function InvoicePage() {
   const printRef = useRef(null);
   const params = useParams();
   const orderId = params.id as string;
   const [order, setOrder] = useState<OrderDto>();
+  const { user } = useAuth();
+  const tenantName = user?.tenantName ?? "SO";
 
   useEffect(() => {
     const fetchOrder = async (orderId: string) => {
@@ -62,7 +33,7 @@ export default function InvoicePage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR").format(amount) + " FCFA";
   };
-// Creer un message whatSapp pour l'envoyer des factures personnalisés
+  // Creer un message whatSapp pour l'envoyer des factures personnalisés
   const formatOrderMessage = (order: OrderDto) => {
     const date = new Date(order?.createdAt).toLocaleDateString("fr-FR", {
       year: "numeric",
@@ -77,9 +48,7 @@ export default function InvoicePage() {
             item.quantity
           }  | Prix unitaire : ${Number(item.unitPrice).toLocaleString(
             "fr-FR"
-          )} | total: ${
-            Number(item.unitPrice) * Number(item.quantity)
-          } `
+          )} | total: ${Number(item.unitPrice) * Number(item.quantity)} `
       )
       .join("\n");
     return `
@@ -105,15 +74,6 @@ ${items}
     const supplierPhone = "+2250747235898";
     sendOrderViaWhatsApp(order, supplierPhone);
   };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("fr-FR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
   return (
     <>
       {/* Styles d'impression */}
@@ -166,12 +126,12 @@ ${items}
           <div className="mb-6 flex gap-3 no-print">
             <Link href="/order" className=" flex justify-center cursor-pointer">
               <button className="bg-gray-200 hover:bg-gray-400 px-2 rounded-md cursor-pointer">
-                Go back
+                Retour
               </button>
             </Link>
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+              className="flex items-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium shadow-sm"
             >
               <Download size={20} />
               Télécharger PDF
@@ -190,19 +150,23 @@ ${items}
             className="bg-white rounded-xl shadow-lg overflow-hidden print:shadow-none print:rounded-none print:m-0"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-8 print-header">
+            <div className="bg-gradient-to-r from-orange-600 to-orange-800 text-white p-8 print-header">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-4">
                   {/* Logo */}
                   <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-xl">L</span>
+                    <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-700 rounded-lg flex items-center justify-center">
+                      <span className="logo text-white font-bold text-xl">
+                        {tenantName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()}
+                      </span>
                     </div>
                   </div>
                   <div>
-                    <h1 className="text-3xl font-bold">
-                      {invoiceData.company.name}
-                    </h1>
+                    <h1 className="text-3xl font-bold">{tenantName}</h1>
                     <p className="text-blue-100 mt-1">
                       Solutions professionnelles
                     </p>
@@ -214,14 +178,13 @@ ${items}
                 </div>
               </div>
             </div>
-
             {/* Content */}
             <div className="p-8 print-content">
               {/* Invoice Info & Company Details */}
               <div className="flex justify-between gap-8 mb-8">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <Hash size={20} className="text-blue-600" />
+                    <Hash size={20} className="text-green-600" />
                     Informations de facturation
                   </h3>
                   <div className="space-y-2 text-sm">
@@ -229,7 +192,7 @@ ${items}
                       <span className="font-medium text-gray-600">
                         N° Facture:
                       </span>
-                      <span className="font-bold text-blue-600">
+                      <span className="font-bold text-green-600">
                         {order?.id}
                       </span>
                     </div>
@@ -248,7 +211,6 @@ ${items}
                   </h3>
                   <div className="text-sm space-y-1">
                     <p className="font-semibold">@{order?.userName}</p>
-                    <p className="text-gray-600">{invoiceData.company.city}</p>
                     <p className="text-gray-600 flex items-center gap-1">
                       <Phone size={14} />
                       {order?.userPhone}
@@ -294,7 +256,7 @@ ${items}
                             </div>
                           </td>
                           <td className="border border-gray-200 px-4 py-3 text-center">
-                            <span className="inline-flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                            <span className="inline-flex items-center justify-center w-8 h-8 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                               {item.quantity}
                             </span>
                           </td>
@@ -328,7 +290,7 @@ ${items}
                           <span className="text-lg font-bold text-gray-900">
                             Total TTC:
                           </span>
-                          <span className="text-xl font-bold text-blue-600">
+                          <span className="text-xl font-bold text-green-600">
                             {totalTTC}
                           </span>
                         </div>
@@ -341,7 +303,7 @@ ${items}
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <div className="grid md:grid-cols-2 gap-6 text-sm"></div>
                 <div className="mt-6 text-center text-xs text-gray-500">
-                  <p>Merci pour votre confiance • {invoiceData.company.name}</p>
+                  <p>Merci pour votre confiance • {tenantName}</p>
                 </div>
               </div>
             </div>

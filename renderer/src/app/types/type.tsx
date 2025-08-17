@@ -38,8 +38,9 @@ export interface User {
   password: string;
   name: string;
   phone: string;
-  tenantId:string;
-  role: "ADMIN" | "MANAGER" | " DELIVERY_PERSON";
+  tenantId: string;
+  tenantName: string;
+  role: "ADMIN" | "MANAGER" | "DELIVERY_PERSON";
 }
 export interface Category {
   id: string;
@@ -89,6 +90,7 @@ export interface deliveryProducts {
     name: string;
     price: number;
   };
+  totalPrice: number;
 }
 export interface deliveryDto {
   id: string;
@@ -139,4 +141,15 @@ export interface customerDto {
   phone: string;
   email: string;
   address: string;
+}
+export interface dashbordItems {
+  totalSales: number;
+  totalDeliveries: number;
+  totalRevenue: number;
+  salesToday: number;
+  deliveriesToday: number;
+}
+export interface tenantDto {
+  id: string;
+  name: string;
 }

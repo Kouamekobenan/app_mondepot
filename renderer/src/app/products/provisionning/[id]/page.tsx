@@ -320,7 +320,6 @@ export default function ProvisioningPage() {
                 </div>
               )}
             </div>
-
             <div className="ml-6">
               <Button
                 onClick={handleBack}
@@ -447,7 +446,7 @@ export default function ProvisioningPage() {
                       max="10000"
                       value={formData.newStock}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                       placeholder="Entrez le nouveau stock"
                       required
                     />

@@ -7,15 +7,17 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>; // <- retourne User
   logout: () => void;
 }
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -32,6 +34,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
 
         setUser(res.data);
+        console.log(res.data);
         setIsAuthenticated(true);
       } catch (error: unknown) {
         console.error("Erreur lors de l'authentification :", error);
@@ -45,14 +48,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
-      const response = await api.post("/auth/login", {
-        email,
-        password,
-      });
-
+      const response = await api.post("/auth/login", { email, password });
       const token = response.data?.token?.access_token;
+
       if (!token) {
         throw new Error("Token non trouvé dans la réponse");
       }
@@ -70,19 +70,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         "Connexion réussie",
         `Bienvenue ${userProfile.data.name} !`
       );
-    } catch (error) {
-      console.error("Échec de la connexion :", error);
-      setUser(null);
-      setIsAuthenticated(false);
+      return userProfile.data; 
+    } catch (error: unknown) {
       console.error("Échec de la connexion :", error);
       setUser(null);
       setIsAuthenticated(false);
       const message =
-        error?.response?.data?.message || "Identifiants incorrects";
+        "Identifiants incorrects";
       throw new Error(message);
     }
   };
-
   const logout = async () => {
     await window.electronAPI?.deleteToken();
     setIsAuthenticated(false);

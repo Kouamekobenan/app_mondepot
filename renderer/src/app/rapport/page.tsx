@@ -188,7 +188,7 @@ export default function CreerRapport() {
               <button
                 onClick={handleGenerateReport}
                 disabled={loading}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md transition-colors"
+                className="px-6 py-2 bg-green-600 cursor-pointer hover:bg-green-700 disabled:opacity-50 text-white rounded-md transition-colors"
               >
                 {loading ? "Chargement..." : "Générer Rapport"}
               </button>
@@ -203,7 +203,6 @@ export default function CreerRapport() {
             </div>
           </div>
         </div>
-
         {/* Statistiques */}
         {filteredDeliveries.length > 0 && (
           <div className="bg-gray-800 p-4 rounded-lg mb-6">

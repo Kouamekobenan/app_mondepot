@@ -52,7 +52,7 @@ export const CardUser: React.FC<Items> = ({
      bg-gray-900 p-4 shadow-sm"
       aria-label="User account info"
     >
-      <h2 className="text-2xl font-bold text-white flex-[2]">{title}</h2>
+      <h2 className="text-2xl font-bold text-green-600 font-serif flex-[2]">{title}</h2>
 
       <div className={`flex items-center gap-3 ${className}`}>
         <div className="flex items-center gap-2 bg-gray-700 rounded-md px-3 py-2 text-white select-none">

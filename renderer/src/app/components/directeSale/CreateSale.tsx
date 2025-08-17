@@ -218,13 +218,13 @@ export default function DirectSaleForm() {
         console.warn("Aucun ID de vente reçu pour la redirection");
       }
     } catch (error: unknown) {
-      console.error("Erreur :", error.response?.data || error.message);
+      console.error("Erreur :", error);
     } finally {
       setIsLoading(false);
     }
   };
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("fr-FR").format(amount) + " FCFA";
+    return new Intl.NumberFormat("fr-FR").format(amount);
   };
 
   const customSelectStyles = {
@@ -660,7 +660,7 @@ export default function DirectSaleForm() {
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 shadow-xl rounded-2xl p-6 space-y-6 sticky top-6">
                   <div className="text-center">
                     <h3 className="text-lg font-bold text-orange-800 mb-4">
-                      Récapitulatif
+                      Récapitulatif (FCFA)
                     </h3>
                   </div>
 
@@ -675,18 +675,59 @@ export default function DirectSaleForm() {
                       </span>
                     </div>
                   </div>
-                  {/* Montant payé */}
+
+                  {/* Montant payé avec bouton Soldé */}
                   <div className="bg-white rounded-xl p-4 shadow-sm border border-orange-100">
                     <label className="block text-sm font-medium text-gray-700 mb-3">
                       Montant payé
                     </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      value={amountPaid}
-                      onChange={(e) => setAmountPaid(Number(e.target.value))}
-                      className="w-full px-4 py-3 border-2 border-orange-200 rounded-lg bg-orange-50 focus:ring-2 focus:ring-orange-500 focus:outline-none focus:border-orange-400 text-gray-800 placeholder:text-orange-300 font-semibold shadow-sm text-center text-lg"
-                    />
+
+                    {/* Container pour input et bouton */}
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(Number(e.target.value))}
+                        className="flex-1 px-4 py-3 border-2 border-orange-200 rounded-lg bg-orange-50 focus:ring-2 focus:ring-orange-500 focus:outline-none focus:border-orange-400 text-gray-800 placeholder:text-orange-300 font-semibold shadow-sm text-center text-lg"
+                      />
+
+                      {/* Bouton Soldé */}
+                      <button
+                        type="button"
+                        onClick={() => setAmountPaid(totalPrice)}
+                        disabled={totalPrice === 0}
+                        className={`px-4 py-3 rounded-lg font-semibold text-sm transition-all duration-200 shadow-sm ${
+                          totalPrice === 0
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : amountPaid === totalPrice
+                            ? "bg-green-500 hover:bg-green-600 text-white"
+                            : "bg-orange-500 hover:bg-orange-600 text-white active:scale-95"
+                        }`}
+                        title="Cliquez pour solder le montant total"
+                      >
+                        {amountPaid === totalPrice && totalPrice > 0 ? (
+                          <span className="flex items-center gap-1">
+                            <Check className="w-4 h-4" />
+                            Soldé
+                          </span>
+                        ) : (
+                          "Soldé"
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Indicateur visuel quand c'est soldé */}
+                    {amountPaid === totalPrice && totalPrice > 0 && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-700 text-sm">
+                          <Check className="w-4 h-4" />
+                          <span className="font-medium">
+                            Montant entièrement soldé
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Reste à payer */}
@@ -696,12 +737,15 @@ export default function DirectSaleForm() {
                         Reste à payer
                       </h4>
                       <span
-                        className={`text-lg font-bold ${
+                        className={`text-lg font-bold flex items-center gap-1 ${
                           totalPrice - amountPaid > 0
                             ? "text-red-600"
                             : "text-green-600"
                         }`}
                       >
+                        {totalPrice - amountPaid === 0 && totalPrice > 0 && (
+                          <Check className="w-5 h-5" />
+                        )}
                         {formatCurrency(Math.max(0, totalPrice - amountPaid))}
                       </span>
                     </div>

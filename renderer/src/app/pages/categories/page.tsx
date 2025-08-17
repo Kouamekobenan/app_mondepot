@@ -223,7 +223,6 @@ export default function Page() {
             </aside>
           )}
         </div>
-
         {loading && <Loader message="Chargement des catégories..." />}
         {error && (
           <p className="text-red-500 bg-red-100 dark:bg-orange-800 p-2 rounded-md mb-4">

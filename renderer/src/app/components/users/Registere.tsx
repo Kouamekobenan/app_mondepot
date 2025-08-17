@@ -28,7 +28,6 @@ export default function Register() {
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -131,7 +130,7 @@ export default function Register() {
           >
             <option value="ADMIN">Admin</option>
             <option value="MANAGER">Manager</option>
-            <option value="DELIVERY_PERSON">Livreur</option>
+            {/* <option value="DELIVERY_PERSON">Livreur</option> */}
           </select>
           <Button
             type="submit"

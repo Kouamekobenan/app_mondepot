@@ -182,7 +182,6 @@ export default function Page() {
                     <option value="ALL">Tous les rôles</option>
                     <option value="ADMIN">Admin</option>
                     <option value="MANAGER">Manager</option>
-                    <option value="DELIVERY_PERSON">Livreur</option>
                   </select>
                 </div>
                 {/* Clear Filters Button */}
@@ -245,7 +244,6 @@ export default function Page() {
                     <div className="col-span-1 text-center">Actions</div>
                   </div>
                 </div>
-
                 {/* Table Body */}
                 <div className="divide-y divide-gray-700">
                   {users.map((user) => (

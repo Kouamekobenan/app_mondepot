@@ -13,19 +13,16 @@ import Navbar from "@/app/components/navbar/Navbar";
 import api, { formatDate } from "@/app/prisma/api";
 import { directSaleDto, directSaleItem } from "@/app/types/type";
 import { useAuth } from "@/app/context/AuthContext";
-
 // Types pour une meilleure structure
 interface SalesMetrics {
   totalAmount: number;
   creditSalesCount: number;
   totalSalesCount: number;
 }
-
 interface LoadingState {
   isLoading: boolean;
   error: string | null;
 }
-
 // Composant pour les métriques de vente
 const SalesMetricCard: React.FC<{
   title: string;
@@ -43,7 +40,6 @@ const SalesMetricCard: React.FC<{
     accent:
       "border-orange-100 bg-gradient-to-br from-orange-50 to-orange-100 hover:from-orange-100 hover:to-orange-150",
   };
-
   return (
     <Link
       href={href}
@@ -68,7 +64,6 @@ const SalesMetricCard: React.FC<{
     </Link>
   );
 };
-
 // Composant pour le bouton de création de vente
 const CreateSaleButton: React.FC = () => (
   <Link href="/directeSale/create" className="group block h-full">
@@ -90,7 +85,6 @@ const CreateSaleButton: React.FC = () => (
     </div>
   </Link>
 );
-
 // Composant pour le tableau des articles
 const SaleItemsTable: React.FC<{ items: directSaleItem[] }> = ({ items }) => (
   <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
@@ -284,7 +278,7 @@ const DirectSaleHome: React.FC = () => {
         <header className="bg-white border-b border-gray-200 px-6 py-6">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Gestion des ventes du journalier:{" "}
+              Gestion des ventes journalière du:{" "}
               <span className="font-bold text-green-500">{dateDay}</span>
             </h1>
             <p className="text-gray-600">
@@ -336,7 +330,7 @@ const DirectSaleHome: React.FC = () => {
                 href="/directeSale/create"
                 className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
               >
-                <Plus size={16} className="mr-2" />
+                <Plus size={16} className="mr-2"/>
                 Créer une vente
               </Link>
             </div>
@@ -352,5 +346,4 @@ const DirectSaleHome: React.FC = () => {
     </div>
   );
 };
-
 export default DirectSaleHome;

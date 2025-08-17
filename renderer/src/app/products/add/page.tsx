@@ -304,7 +304,6 @@ export default function Page(): React.ReactElement {
         categoryProductId: formData.categoryProductId,
         tenantId: tenantId,
       };
-
       console.log("Données envoyées à l'API:", productData);
 
       let response;
@@ -383,7 +382,6 @@ export default function Page(): React.ReactElement {
       </div>
     );
   }
-
   return (
     <div className="max-w-4xl mx-auto mt-8 mb-8">
       {/* Header */}
@@ -471,7 +469,6 @@ export default function Page(): React.ReactElement {
                 </div>
               </div>
             </div>
-
             <div className="lg:col-span-1">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <Tag size={20} />
@@ -573,7 +570,6 @@ export default function Page(): React.ReactElement {
               </div>
             </div>
           </div>
-
           {/* Pricing */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">

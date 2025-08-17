@@ -20,7 +20,7 @@ export default function Page() {
       <div className="flex-1/2">
         <CardUser
           className="bg-gray-900"
-          title="Dashbord de stock et des Livraisons"
+          title={`Bienvenue chez ${user?.tenantName}`}
           name={user?.name ?? null}
           onLogout={handleLogout}
         />

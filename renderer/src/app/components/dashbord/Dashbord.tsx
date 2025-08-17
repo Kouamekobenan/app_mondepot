@@ -11,6 +11,7 @@ import {
   Codesandbox,
   HandCoins,
   Package,
+  ShoppingCart,
   Siren,
   Truck,
   User,
@@ -29,6 +30,7 @@ import {
   Cell,
   TooltipProps,
 } from "recharts";
+import SaleDashbord from "../saleDashbord/SaleDashbord";
 
 // Interface pour les données du graphique des produits
 interface ChartData {
@@ -95,7 +97,9 @@ export default function Dashboard({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<"stock" | "delivery">("stock");
+  const [activeTab, setActiveTab] = useState<"stock" | "delivery" | "sale">(
+    "stock"
+  );
   const { user } = useAuth();
   const tenantId = user?.tenantId;
   // Fonction pour récupérer les produits
@@ -344,7 +348,7 @@ export default function Dashboard({
         <div className="w-full h-[500px] bg-white p-6 rounded-xl shadow-md">
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
               <p className="text-gray-600 font-medium">
                 Chargement des données...
               </p>
@@ -406,7 +410,6 @@ export default function Dashboard({
             {isLoading ? "Actualisation..." : "Actualiser les données"}
           </button>
         </div>
-
         <div className="flex space-x-2 bg-gray-800 p-4 rounded-lg border border-gray-700">
           <button
             onClick={() => setActiveTab("stock")}
@@ -416,8 +419,12 @@ export default function Dashboard({
                 : "text-gray-300 hover:text-white hover:bg-gray-700 border-2 border-transparent"
             }`}
           >
-            <span className="mr-2 flex gap-2">
-              <Blocks /> <small className="text-xl">Gestion des Stocks</small>
+            <span className="mr-2 flex gap-1">
+              <small className="flex flex-col justify-center">
+                {" "}
+                <Blocks className="" />{" "}
+              </small>
+              <small className="text-lg">Gestion des Stocks</small>
             </span>
           </button>
           <button
@@ -428,9 +435,26 @@ export default function Dashboard({
                 : "text-gray-300 hover:text-white hover:bg-gray-700 border-2 border-transparent"
             }`}
           >
-            <span className="mr-2 flex gap-2">
-              <Truck />
-              <small className="text-xl"> Suivi des Livraisons</small>
+            <span className="mr-2 flex gap-1">
+              <small className="flex flex-col justify-center">
+                <Truck />
+              </small>
+              <small className="text-lg">Suivi des Livraisons</small>
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab("sale")}
+            className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              activeTab === "sale"
+                ? "bg-orange-600 text-white shadow-md border-2 border-orange-500"
+                : "text-gray-300 hover:text-white hover:bg-gray-700 border-2 border-transparent"
+            }`}
+          >
+            <span className="mr-2 flex gap-1">
+              <small className="flex flex-col justify-center">
+                <ShoppingCart />
+              </small>{" "}
+              <small className="text-lg">Gestion des ventes</small>
             </span>
           </button>
         </div>
@@ -540,7 +564,6 @@ export default function Dashboard({
                 <span className="font-medium">Données en temps réel</span>
               </div>
             </div>
-
             {chartData.length === 0 ? (
               <div className="h-[400px] flex items-center justify-center text-gray-400 bg-gray-900 rounded-xl border border-gray-700">
                 <div className="text-center">
@@ -668,7 +691,6 @@ export default function Dashboard({
                 </div>
               </div>
             </div>
-
             <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
@@ -743,7 +765,6 @@ export default function Dashboard({
               </div>
             </div>
           </div>
-
           {/* Graphique des livraisons par livreur */}
           <div className="w-full bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700 mt-8">
             <div className="flex items-center justify-between mb-8">
@@ -760,7 +781,6 @@ export default function Dashboard({
                 </div>
               </div>
             </div>
-
             {deliveryChartData.length === 0 ? (
               <div className="h-[400px] flex items-center justify-center text-gray-400 bg-gray-900 rounded-xl border border-gray-700">
                 <div className="text-center">
@@ -835,7 +855,6 @@ export default function Dashboard({
                 </ResponsiveContainer>
               </div>
             )}
-
             {/* Légende des couleurs pour les livraisons */}
             <div className="mt-8 pt-6 border-t border-gray-700">
               <div className="mb-4">
@@ -846,7 +865,6 @@ export default function Dashboard({
                   Classification des livraisons par état d&pos;avancement
                 </p>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="flex items-center gap-3 p-4 bg-gray-900 rounded-lg border border-gray-700">
                   <div className="w-5 h-5 bg-green-500 rounded-full shadow-sm"></div>
@@ -859,7 +877,6 @@ export default function Dashboard({
                     </p>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-3 p-4 bg-gray-900 rounded-lg border border-gray-700">
                   <div className="w-5 h-5 bg-orange-500 rounded-full shadow-sm"></div>
                   <div className="flex-1">
@@ -871,7 +888,6 @@ export default function Dashboard({
                     </p>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-3 p-4 bg-gray-900 rounded-lg border border-gray-700">
                   <div className="w-5 h-5 bg-red-500 rounded-full shadow-sm"></div>
                   <div className="flex-1">
@@ -888,6 +904,7 @@ export default function Dashboard({
           </div>
         </>
       )}
+      {activeTab === "sale" && <><SaleDashbord/></>}
     </div>
   );
 }
