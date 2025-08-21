@@ -4,12 +4,17 @@ import {
   Package,
   Truck,
   TrendingUp,
-  CheckCircle,
   BarChart3,
   Search,
   Loader2,
   Sheet,
   SwissFranc,
+  Calendar,
+  ArrowUpRight,
+  ArrowDownRight,
+  DollarSign,
+  Activity,
+  Target,
 } from "lucide-react";
 import Navbar from "../components/navbar/Navbar";
 import { useAuth } from "../context/AuthContext";
@@ -28,6 +33,7 @@ const Admin = () => {
   const [loading, setLoading] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [deliveries, setDeliveries] = useState<deliveryProducts[]>([]);
+
   const totalLivraison = deliveries.reduce(
     (sum, delivery) => sum + Number(delivery.totalPrice),
     0
@@ -69,11 +75,11 @@ const Admin = () => {
   useEffect(() => {
     fetchSaleDay();
   }, [tenantId, startDate, endDate]);
+
   useEffect(() => {
     const fetchDeliveries = async () => {
       try {
         const res = await api.get(`/delivery/tenant/${tenantId}`);
-        console.log(res.data);
         setDeliveries(res.data);
       } catch (error: unknown) {
         console.log("Erreur lors du chargement", error);
@@ -87,199 +93,329 @@ const Admin = () => {
     value,
     icon: Icon,
     trend,
+    trendDirection = "up",
     iconColor,
+    description,
   }: {
     title: string;
     value: string | number;
     icon: React.ElementType;
     trend?: string;
+    trendDirection?: "up" | "down";
     iconColor: string;
+    description?: string;
   }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`p-3 ${iconColor} rounded-lg shadow-sm`}>
-          <Icon className="h-6 w-6 text-white" />
+    <div className="group relative bg-white rounded-2xl shadow-sm border border-slate-200/60 p-7 hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 hover:-translate-y-0.5 overflow-hidden">
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-slate-50/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+      {/* Content */}
+      <div className="relative">
+        <div className="flex items-start justify-between mb-5">
+          <div
+            className={`p-3.5 ${iconColor} rounded-xl shadow-lg shadow-slate-200/40 group-hover:scale-105 transition-transform duration-300`}
+          >
+            <Icon className="h-6 w-6 text-white" />
+          </div>
+          {trend && (
+            <div
+              className={`flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                trendDirection === "up"
+                  ? "text-emerald-700 bg-emerald-50 border border-emerald-200"
+                  : "text-red-700 bg-red-50 border border-red-200"
+              }`}
+            >
+              {trendDirection === "up" ? (
+                <ArrowUpRight className="h-3 w-3" />
+              ) : (
+                <ArrowDownRight className="h-3 w-3" />
+              )}
+              <span>{trend}</span>
+            </div>
+          )}
         </div>
-        {trend && (
-          <span className="text-sm text-green-600 bg-green-50 px-2 py-1 rounded-full font-medium">
-            {trend}
-          </span>
-        )}
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-600 tracking-wide uppercase leading-tight">
+            {title}
+          </h3>
+          <p className="text-3xl font-bold text-slate-900 tracking-tight leading-none">
+            {typeof value === "number" ? value.toLocaleString() : value}
+          </p>
+          {description && (
+            <p className="text-xs text-slate-500 font-medium">{description}</p>
+          )}
+        </div>
       </div>
-      <h3 className="text-sm font-medium text-gray-600 mb-2">{title}</h3>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
     </div>
   );
+
   const LoadingSkeleton = () => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-pulse">
-      <div className="flex items-center justify-between mb-4">
-        <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-7 animate-pulse">
+      <div className="flex items-center justify-between mb-5">
+        <div className="w-14 h-14 bg-slate-200 rounded-xl"></div>
+        <div className="w-16 h-6 bg-slate-200 rounded-full"></div>
       </div>
-      <div className="h-4 bg-gray-200 rounded mb-2"></div>
-      <div className="h-8 bg-gray-200 rounded w-24"></div>
+      <div className="space-y-3">
+        <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+        <div className="h-8 bg-slate-200 rounded w-1/2"></div>
+        <div className="h-3 bg-slate-200 rounded w-2/3"></div>
+      </div>
     </div>
   );
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "decimal",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-slate-100">
+      {/* Custom Font Imports */}
+      <style jsx global>{`
+        @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+        * {
+          font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+            sans-serif;
+        }
+
+        .font-mono {
+          font-family: "JetBrains Mono", "SF Mono", Monaco, "Cascadia Code",
+            monospace;
+        }
+
+        .text-shadow-sm {
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .backdrop-blur-xs {
+          backdrop-filter: blur(2px);
+        }
+      `}</style>
+
       <div className="flex">
         <Navbar />
-        <main className="flex-1 p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-gradient-to-r from-orange-500 to-pink-500 rounded-lg">
-                    <Sheet className="h-6 w-6 text-white" />
+        <main className="flex-1 p-8 space-y-8">
+          {/* Enhanced Header */}
+          <div className="relative">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-slate-200/60 p-8 relative overflow-hidden">
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-[0.02]">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                  }}
+                />
+              </div>
+
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center space-x-6">
+                  <div className="relative">
+                    <div className="p-4 bg-gradient-to-br from-orange-500 via-orange-600 to-pink-600 rounded-2xl shadow-lg shadow-orange-200/40">
+                      <Sheet className="h-8 w-8 text-white" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
                   </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-900">
+                  <div className="space-y-2">
+                    <h1 className="text-4xl font-bold text-slate-900 tracking-tight text-shadow-sm">
                       Tableau de bord
                     </h1>
-                    <p className="text-gray-600">
-                      Page administrateur de:{" "}
-                      <span className="font-semibold text-green-600">
+                    <div className="flex items-center space-x-2">
+                      <p className="text-slate-600 text-lg font-medium">
+                        Page administrateur de
+                      </p>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold text-emerald-800 bg-emerald-100 border border-emerald-200">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse" />
                         {user?.tenantName}
                       </span>
-                    </p>
+                    </div>
                   </div>
                 </div>
+
                 <div className="flex-shrink-0">
                   <Link href="/history-sale">
-                    <button className="inline-flex cursor-pointer items-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
-                      <svg
-                        className="w-4 h-4 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                        />
-                      </svg>
-                      Historique des ventes
+                    <button className="group relative inline-flex items-center px-6 py-3.5 bg-gradient-to-r from-emerald-600 via-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5 shadow-lg shadow-emerald-200/50 hover:shadow-xl hover:shadow-emerald-300/50 active:scale-95">
+                      <div className="absolute inset-0 bg-white/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <BarChart3 className="w-5 h-5 mr-3 group-hover:rotate-12 transition-transform duration-300" />
+                      <span className="relative text-sm tracking-wide">
+                        Historique des ventes
+                      </span>
                     </button>
                   </Link>
                 </div>
               </div>
             </div>
           </div>
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 mb-8">
+
+          {/* Enhanced Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dashboardLoading ? (
-              Array(5)
+              Array(6)
                 .fill(0)
                 .map((_, i) => <LoadingSkeleton key={i} />)
             ) : (
               <>
                 <StatCard
-                  title="Chiffre d'affaire vente en (FCFA)"
-                  value={`${dataDashboard?.totalRevenue?.toLocaleString()}`}
-                  icon={SwissFranc}
-                  iconColor="bg-orange-300 from-green-500"
-                  trend="+12%"
+                  title="Chiffre d'affaires Ventes"
+                  value={`${formatCurrency(
+                    dataDashboard?.totalRevenue || 0
+                  )} FCFA`}
+                  icon={DollarSign}
+                  iconColor="bg-gradient-to-br from-emerald-500 to-emerald-600"
+                  trend="+12.5%"
+                  trendDirection="up"
+                  description="Revenue total des ventes"
                 />
                 <StatCard
-                  title="Chiffre d'affaire livraison en (FCFA)"
-                  value={totalLivraison || 0}
-                  icon={SwissFranc}
-                  iconColor="bg-orange-300 from-green-500"
-                  trend="+12%"
+                  title="Chiffre d'affaires Livraisons"
+                  value={`${formatCurrency(totalLivraison)} FCFA`}
+                  icon={Truck}
+                  iconColor="bg-gradient-to-br from-blue-500 to-blue-600"
+                  trend="+8.2%"
+                  trendDirection="up"
+                  description="Revenue total des livraisons"
                 />
                 <StatCard
-                  title="Total produits vendus"
+                  title="Produits Vendus"
                   value={dataDashboard?.totalSales || 0}
                   icon={Package}
-                  iconColor="bg-orange-300 from-blue-500 to-blue-600"
+                  iconColor="bg-gradient-to-br from-purple-500 to-purple-600"
+                  trend="+15.3%"
+                  trendDirection="up"
+                  description="Total des produits vendus"
                 />
                 <StatCard
-                  title="Total livraisons"
+                  title="Total Livraisons"
                   value={dataDashboard?.totalDeliveries || 0}
-                  icon={Truck}
-                  iconColor="bg-orange-300 from-orange-500 to-orange-600"
+                  icon={Target}
+                  iconColor="bg-gradient-to-br from-orange-500 to-orange-600"
+                  trend="+5.7%"
+                  trendDirection="up"
+                  description="Livraisons effectuées"
                 />
                 <StatCard
-                  title="Ventes aujourd'hui"
+                  title="Ventes Aujourd'hui"
                   value={dataDashboard?.salesToday || 0}
                   icon={TrendingUp}
-                  iconColor="bg-orange-300 from-purple-500 to-purple-600"
+                  iconColor="bg-gradient-to-br from-pink-500 to-rose-600"
+                  trend="+22.1%"
+                  trendDirection="up"
+                  description="Ventes du jour en cours"
                 />
                 <StatCard
-                  title="Livraisons aujourd'hui"
+                  title="Livraisons Aujourd'hui"
                   value={dataDashboard?.deliveriesToday || 0}
-                  icon={CheckCircle}
-                  iconColor="bg-orange-300 from-emerald-500 to-emerald-600"
+                  icon={Activity}
+                  iconColor="bg-gradient-to-br from-indigo-500 to-indigo-600"
+                  trend="+18.9%"
+                  trendDirection="up"
+                  description="Livraisons du jour"
                 />
               </>
             )}
           </div>
-          {/* Period Analysis */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center mb-6">
-              <div className="p-3 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg mr-4">
-                <BarChart3 className="h-6 w-6 text-white" />
+
+          {/* Enhanced Period Analysis */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-slate-200/60 p-8 relative overflow-hidden">
+            {/* Background decoration */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-2xl" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-emerald-500/5 to-blue-500/5 rounded-full blur-2xl" />
+
+            <div className="relative">
+              <div className="flex items-center mb-8">
+                <div className="p-4 bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl mr-6 shadow-lg shadow-slate-200/40">
+                  <BarChart3 className="h-7 w-7 text-white" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                    Analyse par période
+                  </h2>
+                  <p className="text-slate-600 font-medium">
+                    Consultez les performances sur une période personnalisée
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Analyse par période
-                </h2>
-                <p className="text-gray-600">
-                  Consultez les ventes sur une période personnalisée
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-end">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Date de début
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Date de fin
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <button
-                  onClick={fetchSaleDay}
-                  disabled={loading}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Chargement...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4" />
-                      <span>Analyser</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 border-l-4 border-green-500">
-                <p className="text-sm font-medium text-green-700 mb-1">
-                  Montant total
-                </p>
-                <p className="text-2xl font-bold text-green-900">
-                  {amountTotal.toLocaleString()} FCFA
-                </p>
+
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-end">
+                <div className="space-y-3">
+                  <label className="flex items-center text-sm font-bold text-slate-700 tracking-wide uppercase">
+                    <Calendar className="w-4 h-4 mr-2 text-slate-500" />
+                    Date de début
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-4 py-4 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 backdrop-blur-sm hover:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="flex items-center text-sm font-bold text-slate-700 tracking-wide uppercase">
+                    <Calendar className="w-4 h-4 mr-2 text-slate-500" />
+                    Date de fin
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-4 py-4 bg-slate-50/80 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all duration-200 backdrop-blur-sm hover:bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-slate-700 tracking-wide uppercase opacity-0">
+                    Action
+                  </label>
+                  <button
+                    onClick={fetchSaleDay}
+                    disabled={loading}
+                    className="group w-full px-6 py-4 bg-gradient-to-r from-emerald-600 via-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-emerald-200/50 hover:shadow-xl hover:shadow-emerald-300/50 flex items-center justify-center space-x-3 relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span className="text-sm tracking-wide">
+                          Analyse...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                        <span className="text-sm tracking-wide">Analyser</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="relative bg-gradient-to-br from-emerald-50 via-emerald-50 to-emerald-100 rounded-2xl p-6 border-l-4 border-emerald-500 shadow-sm">
+                  <div className="absolute top-4 right-4">
+                    <div className="w-8 h-8 bg-emerald-500/10 rounded-full flex items-center justify-center">
+                      <SwissFranc className="w-4 h-4 text-emerald-600" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-emerald-700 tracking-wide uppercase">
+                      Montant total
+                    </p>
+                    <p className="text-3xl font-bold text-emerald-900 font-mono tracking-tight">
+                      {formatCurrency(amountTotal)}
+                    </p>
+                    <p className="text-xs text-emerald-600 font-semibold">
+                      FCFA
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

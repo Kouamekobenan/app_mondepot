@@ -5,7 +5,6 @@ import {
   Minus,
   Trash2,
   ShoppingCart,
-  User,
   Package,
   ChevronLeft,
   ChevronRight,
@@ -13,27 +12,38 @@ import {
   AlertCircle,
   Loader2,
   AlertTriangle,
+  ListCollapse,
 } from "lucide-react";
-import { productItems, User as UserDto } from "@/app/types/type";
+import { productItems } from "@/app/types/type";
 import api from "@/app/prisma/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { Button } from "../forms/Button";
 import { useAuth } from "@/app/context/AuthContext";
+
 interface OrderItem {
   productId: string;
   productName: string;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  unitPrice: number; // Prix d'achat (purchasePrice)
+  sellingPrice: number; // Prix de vente (price)
+  totalPrice: number; // Total prix d'achat
+  totalSellingPrice: number; // Total prix de vente
+  unitProfit: number; // Bénéfice par unité
+  totalProfit: number; // Bénéfice total pour cet article
   maxStock: number;
 }
+
+interface PaginationDto {
+  page: number;
+  limit: number;
+  name: string;
+}
+
 const CreateOrderComponent = () => {
   // États du composant
-  const [users, setUsers] = useState<UserDto[]>([]);
   const [allProducts, setAllProducts] = useState<productItems[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<productItems[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,50 +51,32 @@ const CreateOrderComponent = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [usersLoading, setUsersLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orderStatus, setOrderStatus] = useState("PENDING");
   const limit = 5;
-  const {user} = useAuth()
-  const tenantId = user?.tenantId
-  // Fonction pour charger les utilisateurs
-  const fetchUsers = useCallback(async () => {
-    try {
-      setUsersLoading(true);
-      setError(null);
-      const resp = await api.get(`/users/${tenantId}`);
-      setUsers(resp.data);
-    } catch (error: unknown) {
-      console.error("Erreur de chargement des utilisateurs", error);
-      setError("Impossible de charger les utilisateurs");
-    } finally {
-      setUsersLoading(false);
-    }
-  }, [tenantId]);
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
+
   // Fonction pour charger les produits avec pagination côté serveur
   const fetchProducts = useCallback(
     async (page: number, name: string) => {
       try {
         setProductsLoading(true);
         setError(null);
-
-        const params: any = {
+        const params: PaginationDto = {
           page: page,
           limit: limit,
+          name: searchTerm,
         };
 
         let endpoint = `/product/paginate/${tenantId}`;
 
         // Si il y a un terme de recherche, utiliser l'endpoint de filtrage
         if (name.trim()) {
-          endpoint =`/product/filter/${tenantId}`;
+          endpoint = `/product/filter/${tenantId}`;
           params.name = name.trim();
         }
-
-        console.log("Endpoint utilisé:", endpoint);
-        console.log("Paramètres API:", params);
-
         const resp = await api.get(endpoint, { params });
         const result = resp.data;
 
@@ -148,11 +140,6 @@ const CreateOrderComponent = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  // Effet pour charger les utilisateurs
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
   // Effet pour charger les produits quand la page ou le terme de recherche débounced change
   useEffect(() => {
     fetchProducts(currentPage, debouncedSearchTerm);
@@ -172,26 +159,37 @@ const CreateOrderComponent = () => {
     );
 
     if (existingItem) {
-      // Pas de limite pour une commande de réapprovisionnement
+      const newQuantity = existingItem.quantity + 1;
+      const newTotalPrice = newQuantity * existingItem.unitPrice;
+      const newTotalSellingPrice = newQuantity * existingItem.sellingPrice;
+      const newTotalProfit = newTotalSellingPrice - newTotalPrice;
+
       setOrderItems(
         orderItems.map((item) =>
           item.productId === product.id
             ? {
                 ...item,
-                quantity: item.quantity + 1,
-                totalPrice: (item.quantity + 1) * item.unitPrice,
+                quantity: newQuantity,
+                totalPrice: newTotalPrice,
+                totalSellingPrice: newTotalSellingPrice,
+                totalProfit: newTotalProfit,
               }
             : item
         )
       );
     } else {
+      const unitProfit = product.price - product.purchasePrice;
       const newItem: OrderItem = {
         productId: product.id,
         productName: product.name,
         quantity: 1,
-        unitPrice: product.price,
-        totalPrice: product.price,
-        maxStock: product.stock, // Garde l'info du stock actuel pour affichage
+        unitPrice: product.purchasePrice,
+        sellingPrice: product.price,
+        totalPrice: product.purchasePrice,
+        totalSellingPrice: product.price,
+        unitProfit: unitProfit,
+        totalProfit: unitProfit,
+        maxStock: product.stock,
       };
       setOrderItems([...orderItems, newItem]);
     }
@@ -203,6 +201,7 @@ const CreateOrderComponent = () => {
       removeItem(productId);
       return;
     }
+
     setOrderItems(
       orderItems.map((item) =>
         item.productId === productId
@@ -210,6 +209,8 @@ const CreateOrderComponent = () => {
               ...item,
               quantity: newQuantity,
               totalPrice: newQuantity * item.unitPrice,
+              totalSellingPrice: newQuantity * item.sellingPrice,
+              totalProfit: newQuantity * item.unitProfit,
             }
           : item
       )
@@ -221,9 +222,31 @@ const CreateOrderComponent = () => {
     setOrderItems(orderItems.filter((item) => item.productId !== productId));
   };
 
-  // Calculer le total de la commande
+  // Calculer le total de la commande (coût d'achat)
   const calculateTotal = () => {
     return orderItems.reduce((total, item) => total + item.totalPrice, 0);
+  };
+
+  // Nouvelles fonctions de calcul pour la rentabilité
+  const calculateTotalCost = () => {
+    return orderItems.reduce((total, item) => total + item.totalPrice, 0);
+  };
+
+  const calculateTotalRevenue = () => {
+    return orderItems.reduce(
+      (total, item) => total + item.totalSellingPrice,
+      0
+    );
+  };
+
+  const calculateTotalProfit = () => {
+    return orderItems.reduce((total, item) => total + item.totalProfit, 0);
+  };
+
+  const calculateProfitMargin = () => {
+    const totalRevenue = calculateTotalRevenue();
+    if (totalRevenue === 0) return 0;
+    return (calculateTotalProfit() / totalRevenue) * 100;
   };
 
   // Vérifier la quantité commandée pour réapprovisionnement
@@ -242,9 +265,7 @@ const CreateOrderComponent = () => {
   // Soumettre la commande
   const handleSubmit = async () => {
     if (orderItems.length === 0) {
-      alert(
-        "Veuillez sélectionner un fournisseur et ajouter au moins un produit à commander"
-      );
+      alert("Veuillez ajouter au moins un produit à commander");
       return;
     }
     setLoading(true);
@@ -267,7 +288,6 @@ const CreateOrderComponent = () => {
       toast.success("Commande de réapprovisionnement créée avec succès...!");
 
       // Réinitialiser le formulaire
-      setSelectedUserId("");
       setOrderStatus("PENDING");
       setOrderItems([]);
 
@@ -290,6 +310,7 @@ const CreateOrderComponent = () => {
       <span>{message}</span>
     </div>
   );
+
   // Composant de chargement
   const LoadingSpinner = () => (
     <div className="flex items-center justify-center py-8">
@@ -301,6 +322,177 @@ const CreateOrderComponent = () => {
   const getOutOfStockProducts = () => {
     return filteredProducts.filter((product) => product.stock === 0);
   };
+ 
+  // Composant pour afficher un produit avec ses métriques de rentabilité
+  const ProductCard = ({ product }: { product: productItems }) => {
+    const quantityInCart = getProductQuantityInCart(product.id);
+    const isOutOfStock = product.stock === 0;
+    const unitProfit = product.price - product.purchasePrice;
+    const profitMargin =
+      product.price > 0 ? (unitProfit / product.price) * 100 : 0;
+
+    return (
+      <div
+        className={`p-4 rounded-lg border hover:shadow-md transition-all duration-300 ${
+          isOutOfStock
+            ? "out-of-stock-card pulse-red-animation"
+            : "bg-white border-gray-200"
+        }`}
+      >
+        <h3 className="font-semibold text-gray-900 mb-3">{product.name}</h3>
+
+        <div className="space-y-2 mb-3">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">Prix d&apos;achat:</span>
+            <span className="font-medium text-red-600 bg-red-50 px-2 py-1 rounded">
+              {product.purchasePrice.toFixed(0)} F
+            </span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-600">Prix de vente:</span>
+            <span className="font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+              {product.price.toFixed(0)} F
+            </span>
+          </div>
+          <div className="flex justify-between items-center text-sm border-t pt-2">
+            <span className="text-gray-600">Bénéfice/unité:</span>
+            <span
+              className={`font-bold px-2 py-1 rounded ${
+                unitProfit >= 0
+                  ? "text-green-600 bg-green-50"
+                  : "text-red-600 bg-red-50"
+              }`}
+            >
+              {unitProfit.toFixed(0)} F ({profitMargin.toFixed(1)}%)
+            </span>
+          </div>
+        </div>
+
+        <div className="text-sm text-gray-500 mb-3 space-y-1">
+          <p className={isOutOfStock ? "text-red-600 font-bold" : ""}>
+            Stock actuel: {product.stock} unités
+          </p>
+          {quantityInCart > 0 && (
+            <>
+              <p className="text-green-600 font-medium">
+                À commander: {quantityInCart} unités
+              </p>
+              <p className="text-purple-600 font-medium bg-purple-50 p-2 rounded">
+                💰 Bénéfice potentiel:{" "}
+                {(unitProfit * quantityInCart).toFixed(0)} F
+              </p>
+            </>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => addProductToOrder(product)}
+          className={`w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 font-medium ${
+            isOutOfStock
+              ? "bg-red-600 text-white hover:bg-red-700 border-2 border-red-400 blink-animation"
+              : "bg-orange-600 text-white hover:bg-orange-700"
+          }`}
+        >
+          <Plus className="w-4 h-4" />
+          {isOutOfStock ? "Réapprovisionner" : "Commander"}
+        </button>
+      </div>
+    );
+  };
+  // Composant pour afficher un article de commande avec ses métriques
+  const OrderItemCard = ({ item }: { item: OrderItem }) => (
+    <div className="bg-white p-4 rounded-lg border hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900 mb-2">
+            {item.productName}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div className="space-y-1">
+              <p className="flex justify-between">
+                <span className="text-gray-600">Prix d&apos;achat:</span>
+                <span className="font-medium text-red-600">
+                  {item.unitPrice.toFixed(2)} Fcfa
+                </span>
+              </p>
+              <p className="flex justify-between">
+                <span className="text-gray-600">Prix de vente:</span>
+                <span className="font-medium text-blue-600">
+                  {item.sellingPrice.toFixed(2)} Fcfa
+                </span>
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="flex justify-between">
+                <span className="text-gray-600">Stock actuel:</span>
+                <span className="font-medium">{item.maxStock} unités</span>
+              </p>
+              <p className="flex justify-between">
+                <span className="text-gray-600">Bénéfice/unité:</span>
+                <span
+                  className={`font-medium ${
+                    item.unitProfit >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {item.unitProfit.toFixed(2)} Fcfa
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+            <p className="text-sm text-purple-800">
+              <strong>💰 Bénéfice total prévu:</strong>{" "}
+              {item.totalProfit.toFixed(2)} Fcfa
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 ml-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+              className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+
+            <span className="w-12 text-center font-semibold text-lg">
+              {item.quantity}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+              className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="text-right min-w-[120px]">
+            <p className="text-xs text-gray-500">Coût total</p>
+            <p className="font-bold text-lg text-red-600">
+              {item.totalPrice.toFixed(2)} Fcfa
+            </p>
+            <p className="text-xs text-gray-500">Revenus prévus</p>
+            <p className="text-sm font-medium text-blue-600">
+              {item.totalSellingPrice.toFixed(2)} Fcfa
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => removeItem(item.productId)}
+            className="w-8 h-8 bg-red-100 hover:bg-red-200 text-red-600 rounded-full flex items-center justify-center transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white">
@@ -357,18 +549,20 @@ const CreateOrderComponent = () => {
             Commande de Réapprovisionnement
           </h1>
           <p className="text-gray-600">
-            Ajoutez des produits à commander pour
-            réapprovisionner le stock
+            Ajoutez des produits à commander pour réapprovisionner le stock et
+            analysez la rentabilité
           </p>
         </div>
         <div className="">
           <Link href="/order">
-            <Button label="Mes commandes" className="bg-green-600 hover:bg-green-700 border-0 text-white" />
+            <Button
+              label="Mes commandes"
+              className="bg-green-600 hover:bg-green-700 border-0 text-white"
+            />
           </Link>
         </div>
       </div>
       {error && <ErrorMessage message={error} />}
-
       {/* Bannière d'alerte pour stock épuisé */}
       {!productsLoading && getOutOfStockProducts().length > 0 && (
         <div className="stock-warning-banner p-4 rounded-lg mb-6 border-2 border-red-400 pulse-red-animation">
@@ -398,7 +592,6 @@ const CreateOrderComponent = () => {
           </div>
         </div>
       )}
-
       <div className="space-y-8">
         {/* Recherche et liste des produits disponibles */}
         <div className="bg-gray-50 p-6 rounded-lg">
@@ -423,6 +616,7 @@ const CreateOrderComponent = () => {
               </div>
             )}
           </div>
+
           {/* Barre de recherche */}
           <div className="relative mb-6">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -451,61 +645,10 @@ const CreateOrderComponent = () => {
           ) : (
             <>
               {/* Grille des produits */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-                {filteredProducts.map((product) => {
-                  const quantityInCart = getProductQuantityInCart(product.id);
-                  const isOutOfStock = product.stock === 0;
-
-                  return (
-                    <div
-                      key={product.id}
-                      className={`p-4 rounded-lg border hover:shadow-md transition-all duration-300 ${
-                        isOutOfStock
-                          ? "out-of-stock-card pulse-red-animation"
-                          : "bg-white border-gray-200"
-                      }`}
-                    >
-                      <h3 className="font-semibold text-gray-900">
-                        {product.name}
-                      </h3>
-                      <p className="text-2xl font-bold text-orange-800 mt-2">
-                        {product.price.toFixed(0)} F
-                      </p>
-                      <div className="text-sm text-gray-500 mb-3">
-                        <p
-                          className={
-                            isOutOfStock ? "text-red-600 font-bold" : ""
-                          }
-                        >
-                          Stock actuel: {product.stock} unités
-                        </p>
-                        {quantityInCart > 0 && (
-                          <p className="text-green-600 font-medium">
-                            À commander: {quantityInCart} unités
-                          </p>
-                        )}
-                        {quantityInCart > 0 && (
-                          <p className="text-blue-600 text-xs">
-                            Nouveau stock après livraison:{" "}
-                            {product.stock + quantityInCart} unités
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => addProductToOrder(product)}
-                        className={`w-full py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 ${
-                          isOutOfStock
-                            ? "bg-red-600 text-white hover:bg-red-700 border-2 border-red-400 blink-animation"
-                            : "bg-orange-600 text-white hover:bg-orange-700"
-                        }`}
-                      >
-                        <Plus className="w-4 h-4" />
-                        {isOutOfStock ? "Réapprovisionner" : "Commander"}
-                      </button>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
               </div>
 
               {/* Pagination */}
@@ -583,118 +726,147 @@ const CreateOrderComponent = () => {
           )}
         </div>
 
-        {/* Articles de la commande */}
+        {/* Articles de la commande avec analyse de rentabilité */}
         {orderItems.length > 0 && (
           <div className="bg-gray-50 p-6 rounded-lg">
-            <h2 className="text-xl font-semibold mb-4">
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-orange-600" />
               Commande de Réapprovisionnement ({orderItems.length} article
               {orderItems.length > 1 ? "s" : ""})
             </h2>
+
+            {/* Liste des articles */}
             <div className="space-y-4">
               {orderItems.map((item) => (
-                <div
-                  key={item.productId}
-                  className="bg-white p-4 rounded-lg border flex items-center justify-between"
-                >
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">
-                      {item.productName}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Prix unitaire: {item.unitPrice.toFixed(2)} Fcfa • Stock
-                      actuel: {item.maxStock} unités
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateQuantity(item.productId, item.quantity - 1)
-                        }
-                        className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-
-                      <span className="w-12 text-center font-semibold">
-                        {item.quantity}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateQuantity(item.productId, item.quantity + 1)
-                        }
-                        className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="text-right min-w-[80px]">
-                      <p className="font-bold text-lg">
-                        {item.totalPrice.toFixed(2)} Fcfa
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.productId)}
-                      className="w-8 h-8 bg-red-100 hover:bg-red-200 text-red-600 rounded-full flex items-center justify-center transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+                <OrderItemCard key={item.productId} item={item} />
               ))}
             </div>
-            {/* Total de la commande */}
-            <div className="mt-6 pt-6 border-t">
-              <div className="flex justify-between items-center">
-                <span className="text-xl font-semibold">
-                  Total de la commande de réapprovisionnement:
-                </span>
-                <span className="text-3xl font-bold text-orange-600">
-                  {calculateTotal().toFixed(2)} Fcfa
-                </span>
-              </div>
+
+            {/* Résumé final détaillé */}
+            <div className="mt-8 pt-6 border-t border-gray-300">
+              {/* Message de conseil */}
+              {calculateProfitMargin() < 20 && calculateTotalProfit() > 0 && (
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-yellow-800">
+                    <AlertTriangle className="w-5 h-5" />
+                    <p className="text-sm">
+                      <strong>⚠️ Marge faible:</strong> Votre marge bénéficiaire
+                      est de {calculateProfitMargin().toFixed(1)}%. Vous
+                      pourriez envisager de revoir vos prix de vente pour
+                      améliorer la rentabilité.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
-
         {/* Boutons d'action */}
         <div className="flex justify-end gap-4">
           <button
             type="button"
             onClick={() => {
-              setSelectedUserId("");
               setOrderItems([]);
             }}
             disabled={loading}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
-            Annuler
+            <Trash2 className="w-4 h-4" />
+            Vider le Panier
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            // disabled={loading || !selectedUserId || orderItems.length === 0}
-            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+            disabled={loading || orderItems.length === 0}
+            className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors font-medium text-lg"
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Création...
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Création en cours...
               </>
             ) : (
               <>
-                <ShoppingCart className="w-4 h-4" />
-                Créer la Commande de Réapprovisionnement
+                <ShoppingCart className="w-5 h-5" />
+                Créer la Commande ({calculateTotalCost().toFixed(0)} Fcfa)
               </>
             )}
           </button>
         </div>
+
+        {/* Statistiques globales en bas de page */}
+        {orderItems.length > 0 && (
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-lg border">
+            <h3 className="text-lg flex gap-2 font-semibold text-gray-800 mb-4">
+              <ListCollapse /> Détails de Performance par Produit
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-300">
+                    <th className="text-left py-2 px-3">Produit</th>
+                    <th className="text-center py-2 px-3">Qté</th>
+                    <th className="text-right py-2 px-3">Prix Achat</th>
+                    <th className="text-right py-2 px-3">Prix Vente</th>
+                    <th className="text-right py-2 px-3">Marge %</th>
+                    <th className="text-right py-2 px-3">Bénéfice Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderItems.map((item) => (
+                    <tr
+                      key={item.productId}
+                      className="border-b border-gray-200"
+                    >
+                      <td className="py-2 px-3 font-medium">
+                        {item.productName}
+                      </td>
+                      <td className="text-center py-2 px-3">{item.quantity}</td>
+                      <td className="text-right py-2 px-3 text-red-600">
+                        {item.unitPrice.toFixed(0)} F
+                      </td>
+                      <td className="text-right py-2 px-3 text-blue-600">
+                        {item.sellingPrice.toFixed(0)} F
+                      </td>
+                      <td className="text-right py-2 px-3 text-purple-600 font-medium">
+                        {item.sellingPrice > 0
+                          ? (
+                              (item.unitProfit / item.sellingPrice) *
+                              100
+                            ).toFixed(1)
+                          : "0.0"}
+                        %
+                      </td>
+                      <td className="text-right py-2 px-3 text-green-600 font-bold">
+                        {item.totalProfit.toFixed(0)} F
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-400 font-bold">
+                    <td className="py-3 px-3">TOTAL</td>
+                    <td className="text-center py-3 px-3">
+                      {orderItems.reduce((sum, item) => sum + item.quantity, 0)}
+                    </td>
+                    <td className="text-right py-3 px-3 text-red-600">
+                      {calculateTotalCost().toFixed(0)} F
+                    </td>
+                    <td className="text-right py-3 px-3 text-blue-600">
+                      {calculateTotalRevenue().toFixed(0)} F
+                    </td>
+                    <td className="text-right py-3 px-3 text-purple-600">
+                      {calculateProfitMargin().toFixed(1)}%
+                    </td>
+                    <td className="text-right py-3 px-3 text-green-600 text-lg">
+                      {calculateTotalProfit().toFixed(0)} F
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

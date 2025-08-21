@@ -2,18 +2,43 @@
   "name": "app_desktop",
   "version": "1.0.0",
   "main": "dist/index.js",
+  "author": "NELSON_12",
+  "description": "Application DE GESTION 12Dépôt",
+  "license": "MIT",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
     "dev:renderer": "cd renderer && next dev",
     "dev:electron": "npm run build:electron && electron .",
     "build:electron": "tsc",
-    "build:renderer": "cd renderer && next build",
+    "build:renderer": "cd renderer && next build && next export -o renderer/out",
     "build": "npm run build:electron && npm run build:renderer",
-    "start": "electron dist/index.js"
+    "start": "electron dist/index.js",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.12depot.app",
+    "productName": "12Dépôt",
+    "directories": {
+      "buildResources": "electron/assets"
+    },
+    "files": [
+      "dist",
+      "renderer/out"
+    ],
+    "win": {
+      "icon": "electron/assets/icon-ico.ico"
+    },
+    "mac": {
+      "icon": "electron/assets/icon-icns.icns"
+    },
+    "linux": {
+      "icon": "electron/assets/icon-png.png"
+    }
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
     "electron": "^36.4.0",
+    "electron-builder": "^24.13.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "wait-on": "^8.0.3"
@@ -25,9 +50,5 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-select": "^5.10.1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  }
 }

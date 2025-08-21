@@ -276,7 +276,9 @@ export default function DirectSaleForm() {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
                   Espace de Vente Directe de:{" "}
-                  <span className="text-xl text-green-600">{userName}</span>
+                  <span className="text-xl text-green-700 bg-green-100 p-1 rounded-md">
+                    {userName}
+                  </span>
                 </h1>
                 <p className="text-gray-600">Gestion des ventes et clients</p>
               </div>

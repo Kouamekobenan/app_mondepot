@@ -16,6 +16,7 @@ import {
   Truck,
   User,
   Watch,
+  RefreshCw,
 } from "lucide-react";
 import React, { useEffect, useState, useCallback } from "react";
 import {
@@ -80,35 +81,30 @@ interface ApiError {
 
 // Interface pour les produits du dashboard
 interface DashboardProps {
-  refreshInterval?: number;
   lowStockThreshold?: number;
-  autoRefresh?: boolean;
   title?: string;
 }
 
-export default function Dashboard({
-  refreshInterval = 30000, // 30 secondes par défaut
-  lowStockThreshold = 10,
-  autoRefresh = true,
-}: DashboardProps) {
+export default function Dashboard({ lowStockThreshold = 10 }: DashboardProps) {
   // États du composant
   const [product, setProduct] = useState<productItems[]>([]);
   const [deliveryData, setDeliveryData] = useState<deliveryDto[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"stock" | "delivery" | "sale">(
     "stock"
   );
   const { user } = useAuth();
   const tenantId = user?.tenantId;
+
   // Fonction pour récupérer les produits
   const fetchProducts = useCallback(async () => {
     try {
       setError(null);
       const response = await api.get(`/product/tenant/${tenantId}`);
-      // console.log("produits", response.data);
-      // Validation des données
+
       if (!Array.isArray(response.data)) {
         throw new Error("Format de données invalide");
       }
@@ -136,13 +132,16 @@ export default function Dashboard({
 
   // Fonction pour récupérer toutes les données
   const fetchAllData = useCallback(async () => {
+    if (isRefreshing) return; // Empêcher les appels multiples
+
+    setIsRefreshing(true);
     setIsLoading(true);
+
     try {
       await Promise.all([fetchProducts(), fetchDeliveryData()]);
     } catch (error: unknown) {
       let errorMessage = "Erreur lors du chargement des données";
 
-      // Type guard pour vérifier si c'est une erreur d'API
       const apiError = error as ApiError;
 
       if (apiError.response) {
@@ -161,21 +160,14 @@ export default function Dashboard({
       console.error("Erreur lors de la récupération des données:", error);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [fetchProducts, fetchDeliveryData]);
+  }, [fetchProducts, fetchDeliveryData, isRefreshing]);
 
-  // Chargement initial
+  // Chargement initial uniquement
   useEffect(() => {
     fetchAllData();
-  }, [fetchAllData]);
-
-  // Rafraîchissement automatique
-  useEffect(() => {
-    if (!autoRefresh || !refreshInterval) return;
-
-    const interval = setInterval(fetchAllData, refreshInterval);
-    return () => clearInterval(interval);
-  }, [fetchAllData, refreshInterval, autoRefresh]);
+  }, []);
 
   // Transformation des données pour le graphique des stocks
   const chartData: ChartData[] = product.map((item) => ({
@@ -200,7 +192,7 @@ export default function Dashboard({
           : "cancelled";
 
       return {
-        name: delivery.deliveryPerson.name.split(" ")[0], // prénom
+        name: delivery.deliveryPerson.name.split(" ")[0],
         amount: totalAmount,
         count: delivery.deliveryProducts.length,
         status,
@@ -210,23 +202,23 @@ export default function Dashboard({
 
   // Fonction pour déterminer la couleur des barres de stock
   const getBarColor = (stock: number): string => {
-    if (stock === 0) return "#dc2626"; // Rouge foncé - rupture
-    if (stock < lowStockThreshold) return "#ea580c"; // Orange - stock faible
-    if (stock < lowStockThreshold * 2) return "#ca8a04"; // Jaune - stock moyen
-    return "#16a34a"; // Vert - stock suffisant
+    if (stock === 0) return "#dc2626";
+    if (stock < lowStockThreshold) return "#ea580c";
+    if (stock < lowStockThreshold * 2) return "#ca8a04";
+    return "#16a34a";
   };
 
   // Fonction pour déterminer la couleur des barres de livraison
   const getDeliveryBarColor = (status: string): string => {
     switch (status) {
       case "completed":
-        return "#16a34a"; // Vert
+        return "#10b981";
       case "pending":
-        return "#ea580c"; // Orange
+        return "#f59e0b";
       case "cancelled":
-        return "#dc2626"; // Rouge
+        return "#ef4444";
       default:
-        return "#6b7280"; // Gris
+        return "#6b7280";
     }
   };
 
@@ -239,20 +231,23 @@ export default function Dashboard({
     if (active && payload && payload.length) {
       const stock = payload[0].value;
       return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg border-gray-200">
-          <p className="font-medium text-gray-800">{label}</p>
-          <p className="text-sm text-gray-600">
-            Stock: <span className="font-semibold">{stock}</span> unité
+        <div className="bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 p-4 rounded-2xl shadow-2xl">
+          <p className="font-bold text-white text-lg tracking-wide">{label}</p>
+          <p className="text-sm text-gray-300 mt-2">
+            Stock: <span className="font-bold text-orange-400">{stock}</span>{" "}
+            unité
             {stock > 1 ? "s" : ""}
           </p>
           {stock === 0 && (
-            <p className="text-xs text-red-600 font-medium mt-1 flex items-center">
-              🚨 Rupture de stock
+            <p className="text-xs text-red-400 font-bold mt-2 flex items-center gap-2">
+              <Siren className="w-3 h-3" />
+              Rupture de stock
             </p>
           )}
           {stock > 0 && stock < lowStockThreshold && (
-            <p className="text-xs text-orange-600 font-medium mt-1 flex items-center">
-              ⚠️ Stock faible
+            <p className="text-xs text-amber-400 font-bold mt-2 flex items-center gap-2">
+              <Activity className="w-3 h-3" />
+              Stock faible
             </p>
           )}
         </div>
@@ -260,6 +255,7 @@ export default function Dashboard({
     }
     return null;
   };
+
   // Tooltip personnalisé pour les livraisons
   const CustomDeliveryTooltip = ({
     active,
@@ -269,24 +265,35 @@ export default function Dashboard({
     if (active && payload && payload.length) {
       const data = payload[0].payload as DeliveryChartData;
       return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg border-gray-200">
-          <p className="font-medium text-gray-800">{label}</p>
-          <p className="text-sm text-gray-600">
+        <div className="bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 p-4 rounded-2xl shadow-2xl">
+          <p className="font-bold text-white text-lg tracking-wide">{label}</p>
+          <p className="text-sm text-gray-300 mt-2">
             Montant:{" "}
-            <span className="font-semibold">
+            <span className="font-bold text-emerald-400">
               {data.amount.toLocaleString()} FCFA
             </span>
           </p>
-          <p className="text-sm text-gray-600">
-            Livraisons: <span className="font-semibold">{data.count}</span>
+          <p className="text-sm text-gray-300">
+            Livraisons:{" "}
+            <span className="font-bold text-blue-400">{data.count}</span>
           </p>
-          <p className="text-xs text-gray-500 mt-1 capitalize">
+          <p className="text-xs text-gray-400 mt-2 capitalize">
             Statut:{" "}
-            {data.status === "completed"
-              ? "Terminé"
-              : data.status === "pending"
-              ? "En cours"
-              : "Annulé"}
+            <span
+              className={`font-bold ${
+                data.status === "completed"
+                  ? "text-emerald-400"
+                  : data.status === "pending"
+                  ? "text-amber-400"
+                  : "text-red-400"
+              }`}
+            >
+              {data.status === "completed"
+                ? "Terminé"
+                : data.status === "pending"
+                ? "En cours"
+                : "Annulé"}
+            </span>
           </p>
         </div>
       );
@@ -308,6 +315,7 @@ export default function Dashboard({
           )
         : 0,
   };
+
   // Calcul des statistiques de livraison
   const deliveryStats: DeliveryStats = {
     totalDeliveries: deliveryData.length,
@@ -341,43 +349,71 @@ export default function Dashboard({
       .filter((d) => d.status === "IN_PROGRESS")
       .reduce((sum, d) => sum + d.deliveryProducts.length, 0),
   };
+
   // Rendu pour l'état de chargement
-  if (isLoading) {
+  if (isLoading && !isRefreshing) {
     return (
-      <div className="w-full p-6">
-        <div className="w-full h-[500px] bg-white p-6 rounded-xl shadow-md">
+      <div className="w-full p-8 min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-slate-900 font-['Inter',sans-serif]">
+        <div className="w-full h-[600px] bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30">
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
-              <p className="text-gray-600 font-medium">
+              <div className="relative mb-8">
+                <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-orange-500/20 border-t-orange-500 shadow-lg"></div>
+                <div className="absolute inset-0 animate-ping rounded-full h-16 w-16 border-2 border-orange-400/40"></div>
+              </div>
+              <p className="text-white font-bold text-xl tracking-wide">
                 Chargement des données...
               </p>
-              <p className="text-gray-400 text-sm mt-2">
-                Connexion à l&apos;API en cours
+              <p className="text-gray-400 text-sm mt-3 font-medium tracking-wide">
+                Connexion sécurisée à l&apos;API en cours
               </p>
+              <div className="mt-8 flex justify-center gap-2">
+                <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce"></div>
+                <div
+                  className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "0.1s" }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-orange-300 rounded-full animate-bounce"
+                  style={{ animationDelay: "0.2s" }}
+                ></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     );
   }
+
   // Rendu pour l'état d'erreur
   if (error) {
     return (
-      <div className="w-full p-6">
-        <div className="w-full h-[500px] bg-white p-6 rounded-xl shadow-md border border-red-200">
+      <div className="w-full p-8 min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-slate-900 font-['Inter',sans-serif]">
+        <div className="w-full h-[600px] bg-red-900/20 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-red-700/30">
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md">
-              <div className="text-red-500 text-6xl mb-4">⚠️</div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              <div className="text-red-400 text-8xl mb-6 filter drop-shadow-lg">
+                ⚠️
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-4 tracking-wide">
                 Erreur de chargement
               </h3>
-              <p className="text-gray-600 mb-4 text-sm">{error}</p>
+              <p className="text-gray-300 mb-8 text-sm leading-relaxed font-medium">
+                {error}
+              </p>
               <button
                 onClick={fetchAllData}
-                className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors duration-200 font-medium"
+                disabled={isRefreshing}
+                className="px-8 py-4 bg-gradient-to-r from-orange-600 to-orange-500 text-white rounded-2xl hover:from-orange-500 hover:to-orange-400 transition-all duration-300 font-bold text-sm tracking-wide shadow-xl hover:shadow-orange-500/25 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
-                Réessayer
+                {isRefreshing ? (
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Rechargement...
+                  </span>
+                ) : (
+                  "Réessayer"
+                )}
               </button>
             </div>
           </div>
@@ -388,523 +424,592 @@ export default function Dashboard({
 
   // Rendu principal
   return (
-    <div className="w-full p-6 space-y-6 bg-gray-900 min-h-screen">
-      {/* En-tête avec onglets */}
-      <div className="bg-gray-900 p-8 rounded-xl shadow-lg border border-gray-700">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div>
-            {lastUpdated && (
-              <p className="text-sm text-gray-300 mt-1 font-medium">
-                Dernière mise à jour : {lastUpdated.toLocaleString("fr-FR")}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={fetchAllData}
-            disabled={isLoading}
-            className="flex items-center gap-3 px-6 py-3 text-sm bg-gray-800 text-gray-200 rounded-lg hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-4 sm:mt-0 border border-gray-600 font-medium shadow-sm"
-          >
-            <span className={`text-lg ${isLoading ? "animate-spin" : ""}`}>
-              ⟳
-            </span>
-            {isLoading ? "Actualisation..." : "Actualiser les données"}
-          </button>
-        </div>
-        <div className="flex space-x-2 bg-gray-800 p-4 rounded-lg border border-gray-700">
-          <button
-            onClick={() => setActiveTab("stock")}
-            className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              activeTab === "stock"
-                ? "bg-orange-600 text-white shadow-md border-2 border-orange-500"
-                : "text-gray-300 hover:text-white hover:bg-gray-700 border-2 border-transparent"
-            }`}
-          >
-            <span className="mr-2 flex gap-1">
-              <small className="flex flex-col justify-center">
-                {" "}
-                <Blocks className="" />{" "}
-              </small>
-              <small className="text-lg">Gestion des Stocks</small>
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab("delivery")}
-            className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              activeTab === "delivery"
-                ? "bg-orange-600 text-white shadow-md border-2 border-orange-500"
-                : "text-gray-300 hover:text-white hover:bg-gray-700 border-2 border-transparent"
-            }`}
-          >
-            <span className="mr-2 flex gap-1">
-              <small className="flex flex-col justify-center">
-                <Truck />
-              </small>
-              <small className="text-lg">Suivi des Livraisons</small>
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab("sale")}
-            className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              activeTab === "sale"
-                ? "bg-orange-600 text-white shadow-md border-2 border-orange-500"
-                : "text-gray-300 hover:text-white hover:bg-gray-700 border-2 border-transparent"
-            }`}
-          >
-            <span className="mr-2 flex gap-1">
-              <small className="flex flex-col justify-center">
-                <ShoppingCart />
-              </small>{" "}
-              <small className="text-lg">Gestion des ventes</small>
-            </span>
-          </button>
-        </div>
+    <div className="w-full p-8 min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-slate-900 font-['Inter',sans-serif] relative overflow-x-hidden">
+      {/* Effets de fond décoratifs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-orange-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-orange-500/5 to-amber-500/5 rounded-full blur-3xl"></div>
       </div>
-      {/* Contenu selon l'onglet actif */}
-      {activeTab === "stock" && (
-        <>
-          {/* Cartes de statistiques de stock */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Total Produits
-                  </p>
-                  <p className="text-3xl font-bold text-white mt-2">
-                    {stockStats.totalProducts}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className="text-orange-400 text-2xl">
-                    {" "}
-                    <Package className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Stock Total
-                  </p>
-                  <p className="text-3xl font-bold text-white mt-2">
-                    {stockStats.totalStock}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className="text-2xl">
-                    <ChartColumnIncreasing className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Stock Moyen
-                  </p>
-                  <p className="text-3xl font-bold text-white mt-2">
-                    {stockStats.averageStock}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className=" text-2xl">
-                    <ChartLine className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Stock Faible
-                  </p>
-                  <p className="text-3xl font-bold text-orange-400 mt-2">
-                    {stockStats.lowStock}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className="text-orange-400 text-2xl">
-                    {" "}
-                    <Activity className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Ruptures
-                  </p>
-                  <p className="text-3xl font-bold text-red-400 mt-2">
-                    {stockStats.outOfStock}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border-0 border-opacity-30">
-                  <span className="text-2xl">
-                    {" "}
-                    <Siren className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* Graphique des stocks */}
-          <div className="w-full bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-white">
-                Analyse du Stock par Produit
-              </h2>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
-                <span className="font-medium">Données en temps réel</span>
-              </div>
-            </div>
-            {chartData.length === 0 ? (
-              <div className="h-[400px] flex items-center justify-center text-gray-400 bg-gray-900 rounded-xl border border-gray-700">
-                <div className="text-center">
-                  <div className="mb-6">
-                    <span className="text-8xl mb-4 block opacity-40">📊</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-300 mb-3">
-                    Aucune donnée disponible
-                  </h3>
-                  <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
-                    Les statistiques de stock apparaîtront automatiquement dès
-                    que les données seront chargées depuis votre système de
-                    gestion
-                  </p>
-                  <div className="mt-8 flex justify-center">
-                    <div className="flex space-x-2">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
-                      <div
-                        className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="w-3 h-3 bg-orange-300 rounded-full animate-pulse"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="h-[400px] bg-gray-900 rounded-xl border border-gray-700 p-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={chartData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#374151"
-                      strokeOpacity={0.3}
-                    />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 12, fill: "#D1D5DB" }}
-                      axisLine={{ stroke: "#4B5563" }}
-                      tickLine={{ stroke: "#4B5563" }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                      interval={0}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12, fill: "#D1D5DB" }}
-                      axisLine={{ stroke: "#4B5563" }}
-                      tickLine={{ stroke: "#4B5563" }}
-                    />
-                    <Tooltip content={<CustomStockTooltip />} />
-                    <Legend />
-                    <Bar
-                      dataKey="stock"
-                      name="Stock disponible"
-                      radius={[6, 6, 0, 0]}
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={getBarColor(entry.stock)}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-            {/* Légende des couleurs pour les stocks */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <div className="flex flex-wrap gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-green-500 rounded"></div>
-                  <span className="text-gray-600">
-                    Stock suffisant (≥{lowStockThreshold * 2})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-                  <span className="text-gray-600">
-                    Stock moyen ({lowStockThreshold}-{lowStockThreshold * 2 - 1}
-                    )
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                  <span className="text-gray-600">
-                    Stock faible (1-{lowStockThreshold - 1})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-red-600 rounded"></div>
-                  <span className="text-gray-600">Rupture de stock (0)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-      {activeTab === "delivery" && (
-        <>
-          {/* Cartes de statistiques de livraison */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Livreurs Actifs
-                  </p>
-                  <p className="text-xl font-bold text-white mt-2">
-                    {deliveryStats.totalDeliveryPersons}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className="text-orange-400 text-2xl">
-                    {" "}
-                    <User className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Total Livraisons
-                  </p>
-                  <p className="text-3xl font-bold text-white mt-2">
-                    {deliveryStats.totalDeliveries}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className="text-2xl">
-                    {" "}
-                    <Codesandbox className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
 
-            <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide flex items-center gap-2">
-                    Montant Total
-                  </p>
-                  <p className="text-xl font-bold text-white mt-2">
-                    {deliveryStats.totalAmount.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-400 font-medium mt-1">FCFA</p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className=" text-2xl">
-                    <HandCoins className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    Terminées
-                  </p>
-                  <p className="text-xl font-bold text-green-400 mt-2">
-                    {deliveryStats.completedDeliveries}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className="text-2xl">
-                    <Check className="text-white font-bold " />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                    En Cours
-                  </p>
-                  <p className="text-3xl font-bold text-orange-400 mt-2">
-                    {deliveryStats.pendingDeliveries}
-                  </p>
-                </div>
-                <div className="p-1 bg-orange-300 bg-opacity-20 rounded-xl border border-orange-300 border-opacity-30">
-                  <span className="text-orange-400 text-2xl">
-                    {" "}
-                    <Watch className="text-white" />
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* Graphique des livraisons par livreur */}
-          <div className="w-full bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-700 mt-8">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-white">
-                Performance des Livreurs - Aujourd&apos;hui
-              </h2>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                  <span className="font-medium">Suivi en temps réel</span>
-                </div>
-                <div className="text-sm text-gray-400 bg-gray-900 px-3 py-1 rounded-lg border border-gray-700">
-                  {new Date().toLocaleDateString("fr-FR")}
-                </div>
-              </div>
-            </div>
-            {deliveryChartData.length === 0 ? (
-              <div className="h-[400px] flex items-center justify-center text-gray-400 bg-gray-900 rounded-xl border border-gray-700">
-                <div className="text-center">
-                  <div className="mb-6">
-                    <span className="text-8xl mb-4 block opacity-40">🚚</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-300 mb-3">
-                    Aucune livraison aujourd&apos;hui
-                  </h3>
-                  <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
-                    Les performances de livraison s&apos;afficheront
-                    automatiquement dès que les livreurs commenceront leurs
-                    tournées
-                  </p>
-                  <div className="mt-8 flex justify-center">
-                    <div className="flex space-x-2">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
-                      <div
-                        className="w-3 h-3 bg-orange-400 rounded-full animate-pulse"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="w-3 h-3 bg-orange-300 rounded-full animate-pulse"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="h-[400px] bg-gray-900 rounded-xl border border-gray-700 p-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={deliveryChartData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#374151"
-                      strokeOpacity={0.3}
-                    />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 12, fill: "#D1D5DB" }}
-                      axisLine={{ stroke: "#4B5563" }}
-                      tickLine={{ stroke: "#4B5563" }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                      interval={0}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 12, fill: "#D1D5DB" }}
-                      axisLine={{ stroke: "#4B5563" }}
-                      tickLine={{ stroke: "#4B5563" }}
-                    />
-                    <Tooltip content={<CustomDeliveryTooltip />} />
-                    <Legend />
-                    <Bar
-                      dataKey="amount"
-                      name="Montant (FCFA)"
-                      radius={[6, 6, 0, 0]}
-                    >
-                      {deliveryChartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={getDeliveryBarColor(entry.status)}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-            {/* Légende des couleurs pour les livraisons */}
-            <div className="mt-8 pt-6 border-t border-gray-700">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">
-                  Statuts des Livraisons
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Classification des livraisons par état d&pos;avancement
+      <div className="relative z-10 space-y-8">
+        {/* En-tête avec onglets */}
+        <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+            <div className="mb-6 lg:mb-0">
+              <h1 className="text-4xl font-black text-white tracking-tight bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                Dashboard Analytics
+              </h1>
+              {lastUpdated && (
+                <p className="text-sm text-gray-400 mt-2 font-medium tracking-wide">
+                  Dernière mise à jour :{" "}
+                  {lastUpdated.toLocaleString("fr-FR", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}
                 </p>
+              )}
+            </div>
+            <button
+              onClick={fetchAllData}
+              disabled={isRefreshing}
+              className="flex items-center gap-3 px-8 py-4 text-sm bg-gradient-to-r from-gray-700 to-gray-800 text-white rounded-2xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-bold tracking-wide shadow-xl hover:shadow-gray-500/20 transform hover:scale-105 disabled:hover:scale-100 border border-gray-600/50"
+            >
+              <RefreshCw
+                className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              {isRefreshing ? "Actualisation..." : "Actualiser maintenant"}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-3 bg-gray-900/50 p-6 rounded-2xl border border-gray-700/50 backdrop-blur-sm">
+            <button
+              onClick={() => setActiveTab("stock")}
+              className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-sm font-bold transition-all duration-300 transform hover:scale-105 ${
+                activeTab === "stock"
+                  ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-2xl shadow-orange-500/30 border-2 border-orange-400/50"
+                  : "text-gray-300 hover:text-white hover:bg-gray-700/50 border-2 border-transparent hover:border-gray-600/30"
+              }`}
+            >
+              <Blocks className="w-5 h-5" />
+              <span className="tracking-wide">Gestion des Stocks</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("delivery")}
+              className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-sm font-bold transition-all duration-300 transform hover:scale-105 ${
+                activeTab === "delivery"
+                  ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-2xl shadow-orange-500/30 border-2 border-orange-400/50"
+                  : "text-gray-300 hover:text-white hover:bg-gray-700/50 border-2 border-transparent hover:border-gray-600/30"
+              }`}
+            >
+              <Truck className="w-5 h-5" />
+              <span className="tracking-wide">Suivi des Livraisons</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("sale")}
+              className={`flex items-center gap-3 px-8 py-4 rounded-2xl text-sm font-bold transition-all duration-300 transform hover:scale-105 ${
+                activeTab === "sale"
+                  ? "bg-gradient-to-r from-orange-600 to-orange-500 text-white shadow-2xl shadow-orange-500/30 border-2 border-orange-400/50"
+                  : "text-gray-300 hover:text-white hover:bg-gray-700/50 border-2 border-transparent hover:border-gray-600/30"
+              }`}
+            >
+              <ShoppingCart className="w-5 h-5" />
+              <span className="tracking-wide">Gestion des Ventes</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Contenu selon l'onglet actif */}
+        {activeTab === "stock" && (
+          <>
+            {/* Cartes de statistiques de stock */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-orange-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Total Produits
+                    </p>
+                    <p className="text-xl font-black text-white tracking-tight">
+                      {stockStats.totalProducts}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-orange-500/20 to-amber-500/20 rounded-2xl border border-orange-400/30 group-hover:from-orange-500/30 group-hover:to-amber-500/30 transition-all duration-300">
+                    <Package className="text-orange-400 w-8 h-8" />
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="flex items-center gap-3 p-4 bg-gray-900 rounded-lg border border-gray-700">
-                  <div className="w-5 h-5 bg-green-500 rounded-full shadow-sm"></div>
+
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-blue-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <span className="text-gray-300 font-semibold">
-                      Livraisons Terminées
-                    </span>
-                    <p className="text-gray-500 text-xs mt-1">
-                      Commandes livrées avec succès
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Stock Total
+                    </p>
+                    <p className="text-xl font-black text-white tracking-tight">
+                      {stockStats.totalStock}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-gray-900 rounded-lg border border-gray-700">
-                  <div className="w-5 h-5 bg-orange-500 rounded-full shadow-sm"></div>
-                  <div className="flex-1">
-                    <span className="text-gray-300 font-semibold">
-                      Livraisons en Cours
-                    </span>
-                    <p className="text-gray-500 text-xs mt-1">
-                      Commandes en cours de livraison
-                    </p>
+                  <div className="p-1 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-2xl border border-blue-400/30 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all duration-300">
+                    <ChartColumnIncreasing className="text-blue-400 w-8 h-8" />
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-4 bg-gray-900 rounded-lg border border-gray-700">
-                  <div className="w-5 h-5 bg-red-500 rounded-full shadow-sm"></div>
+              </div>
+
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-emerald-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <span className="text-gray-300 font-semibold">
-                      Livraisons Annulées
-                    </span>
-                    <p className="text-gray-500 text-xs mt-1">
-                      Commandes annulées ou échouées
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Stock Moyen
                     </p>
+                    <p className="text-xl font-black text-white tracking-tight">
+                      {stockStats.averageStock}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-emerald-500/20 to-green-500/20 rounded-2xl border border-emerald-400/30 group-hover:from-emerald-500/30 group-hover:to-green-500/30 transition-all duration-300">
+                    <ChartLine className="text-emerald-400 w-8 h-8" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-amber-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Stock Faible
+                    </p>
+                    <p className="text-xl font-black text-amber-400 tracking-tight">
+                      {stockStats.lowStock}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-amber-500/20 to-yellow-500/20 rounded-2xl border border-amber-400/30 group-hover:from-amber-500/30 group-hover:to-yellow-500/30 transition-all duration-300">
+                    <Activity className="text-amber-400 w-8 h-8" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-red-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Ruptures
+                    </p>
+                    <p className="text-xl font-black text-red-400 tracking-tight">
+                      {stockStats.outOfStock}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-red-500/20 to-rose-500/20 rounded-2xl border border-red-400/30 group-hover:from-red-500/30 group-hover:to-rose-500/30 transition-all duration-300">
+                    <Siren className="text-red-400 w-8 h-8" />
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Graphique des stocks */}
+            <div className="w-full bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-3xl font-black text-white tracking-tight mb-2">
+                    Analyse du Stock par Produit
+                  </h2>
+                  <p className="text-gray-400 font-medium tracking-wide">
+                    Vue d&apos;ensemble des niveaux de stock actuels
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2 bg-green-500/20 rounded-2xl border border-green-400/30">
+                  <span className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-green-400/50 shadow-lg"></span>
+                  <span className="text-sm font-bold text-green-400 tracking-wide">
+                    Données en temps réel
+                  </span>
+                </div>
+              </div>
+
+              {chartData.length === 0 ? (
+                <div className="h-[500px] flex items-center justify-center bg-gray-900/50 rounded-3xl border border-gray-700/50 backdrop-blur-sm">
+                  <div className="text-center">
+                    <div className="mb-8 relative">
+                      <span className="text-9xl block opacity-30 filter grayscale">
+                        📊
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-transparent to-orange-500/10 rounded-full blur-xl"></div>
+                    </div>
+                    <h3 className="text-2xl font-bold text-white mb-4 tracking-wide">
+                      Aucune donnée disponible
+                    </h3>
+                    <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed font-medium tracking-wide">
+                      Les statistiques de stock apparaîtront automatiquement dès
+                      que les données seront chargées depuis votre système de
+                      gestion
+                    </p>
+                    <div className="mt-8 flex justify-center gap-2">
+                      <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce shadow-orange-500/50 shadow-lg"></div>
+                      <div
+                        className="w-3 h-3 bg-orange-400 rounded-full animate-bounce shadow-orange-400/50 shadow-lg"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="w-3 h-3 bg-orange-300 rounded-full animate-bounce shadow-orange-300/50 shadow-lg"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-[500px] bg-gray-900/50 rounded-3xl border border-gray-700/50 p-6 backdrop-blur-sm">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={chartData}
+                      margin={{ top: 30, right: 40, left: 30, bottom: 80 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#374151"
+                        strokeOpacity={0.4}
+                      />
+                      <XAxis
+                        dataKey="name"
+                        tick={{
+                          fontSize: 13,
+                          fill: "#D1D5DB",
+                          fontWeight: "600",
+                        }}
+                        axisLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                        tickLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                        interval={0}
+                      />
+                      <YAxis
+                        tick={{
+                          fontSize: 13,
+                          fill: "#D1D5DB",
+                          fontWeight: "600",
+                        }}
+                        axisLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                        tickLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                      />
+                      <Tooltip content={<CustomStockTooltip />} />
+                      <Legend />
+                      <Bar
+                        dataKey="stock"
+                        name="Stock disponible"
+                        radius={[8, 8, 0, 0]}
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={getBarColor(entry.stock)}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Légende des couleurs pour les stocks */}
+              <div className="mt-8 pt-6 border-t border-gray-700/50">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-white mb-2 tracking-wide">
+                    Classification des Niveaux de Stock
+                  </h3>
+                  <p className="text-sm text-gray-400 font-medium tracking-wide">
+                    Code couleur pour l&apos;évaluation rapide des stocks
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                  <div className="flex items-center gap-4 p-4 bg-emerald-500/10 rounded-2xl border border-emerald-400/20 backdrop-blur-sm hover:bg-emerald-500/20 transition-all duration-300">
+                    <div className="w-6 h-6 bg-emerald-500 rounded-xl shadow-emerald-500/50 shadow-lg"></div>
+                    <div className="flex-1">
+                      <span className="text-white font-bold tracking-wide block">
+                        Stock Suffisant
+                      </span>
+                      <p className="text-emerald-400 text-xs mt-1 font-medium">
+                        ≥{lowStockThreshold * 2} unités
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-4 bg-amber-500/10 rounded-2xl border border-amber-400/20 backdrop-blur-sm hover:bg-amber-500/20 transition-all duration-300">
+                    <div className="w-6 h-6 bg-amber-500 rounded-xl shadow-amber-500/50 shadow-lg"></div>
+                    <div className="flex-1">
+                      <span className="text-white font-bold tracking-wide block">
+                        Stock Moyen
+                      </span>
+                      <p className="text-amber-400 text-xs mt-1 font-medium">
+                        {lowStockThreshold}-{lowStockThreshold * 2 - 1} unités
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-4 bg-orange-500/10 rounded-2xl border border-orange-400/20 backdrop-blur-sm hover:bg-orange-500/20 transition-all duration-300">
+                    <div className="w-6 h-6 bg-orange-500 rounded-xl shadow-orange-500/50 shadow-lg"></div>
+                    <div className="flex-1">
+                      <span className="text-white font-bold tracking-wide block">
+                        Stock Faible
+                      </span>
+                      <p className="text-orange-400 text-xs mt-1 font-medium">
+                        1-{lowStockThreshold - 1} unités
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-4 bg-red-500/10 rounded-2xl border border-red-400/20 backdrop-blur-sm hover:bg-red-500/20 transition-all duration-300">
+                    <div className="w-6 h-6 bg-red-500 rounded-xl shadow-red-500/50 shadow-lg"></div>
+                    <div className="flex-1">
+                      <span className="text-white font-bold tracking-wide block">
+                        Rupture de Stock
+                      </span>
+                      <p className="text-red-400 text-xs mt-1 font-medium">
+                        0 unité
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "delivery" && (
+          <>
+            {/* Cartes de statistiques de livraison */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-purple-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Livreurs Actifs
+                    </p>
+                    <p className="text-xl font-black text-white tracking-tight">
+                      {deliveryStats.totalDeliveryPersons}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-purple-500/20 to-violet-500/20 rounded-2xl border border-purple-400/30 group-hover:from-purple-500/30 group-hover:to-violet-500/30 transition-all duration-300">
+                    <User className="text-purple-400 w-8 h-8" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-blue-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Total Livraisons
+                    </p>
+                    <p className="text-xl font-black text-white tracking-tight">
+                      {deliveryStats.totalDeliveries}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-2xl border border-blue-400/30 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all duration-300">
+                    <Codesandbox className="text-blue-400 w-8 h-8" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-emerald-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Montant Total
+                    </p>
+                    <p className="text-xl font-black text-white tracking-tight">
+                      {deliveryStats.totalAmount.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-400 font-bold mt-2 tracking-widest">
+                      FCFA
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-emerald-500/20 to-green-500/20 rounded-2xl border border-emerald-400/30 group-hover:from-emerald-500/30 group-hover:to-green-500/30 transition-all duration-300">
+                    <HandCoins className="text-emerald-400 w-8 h-8" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-green-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      Terminées
+                    </p>
+                    <p className="text-xl font-black text-green-400 tracking-tight">
+                      {deliveryStats.completedDeliveries}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-2xl border border-green-400/30 group-hover:from-green-500/30 group-hover:to-emerald-500/30 transition-all duration-300">
+                    <Check className="text-green-400 w-8 h-8" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30 hover:shadow-amber-500/10 transition-all duration-300 transform hover:scale-105 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                      En Cours
+                    </p>
+                    <p className="text-xl font-black text-amber-400 tracking-tight">
+                      {deliveryStats.pendingDeliveries}
+                    </p>
+                  </div>
+                  <div className="p-1 bg-gradient-to-br from-amber-500/20 to-yellow-500/20 rounded-2xl border border-amber-400/30 group-hover:from-amber-500/30 group-hover:to-yellow-500/30 transition-all duration-300">
+                    <Watch className="text-amber-400 w-8 h-8" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Graphique des livraisons par livreur */}
+            <div className="w-full bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+                <div className="mb-6 lg:mb-0">
+                  <h2 className="text-3xl font-black text-white tracking-tight mb-2">
+                    Performance des Livreurs
+                  </h2>
+                  <p className="text-gray-400 font-medium tracking-wide">
+                    Analyse des performances journalières en temps réel
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-3 px-4 py-2 bg-emerald-500/20 rounded-2xl border border-emerald-400/30">
+                    <span className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-emerald-400/50 shadow-lg"></span>
+                    <span className="text-sm font-bold text-emerald-400 tracking-wide">
+                      Suivi en temps réel
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-gray-300 bg-gray-900/50 px-4 py-2 rounded-2xl border border-gray-700/50 tracking-wider">
+                    {new Date().toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {deliveryChartData.length === 0 ? (
+                <div className="h-[500px] flex items-center justify-center bg-gray-900/50 rounded-3xl border border-gray-700/50 backdrop-blur-sm">
+                  <div className="text-center">
+                    <div className="mb-8 relative">
+                      <span className="text-9xl block opacity-30 filter grayscale">
+                        🚚
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-transparent to-blue-500/10 rounded-full blur-xl"></div>
+                    </div>
+                    <h3 className="text-2xl font-bold text-white mb-4 tracking-wide">
+                      Aucune livraison aujourd&apos;hui
+                    </h3>
+                    <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed font-medium tracking-wide">
+                      Les performances de livraison s&apos;afficheront
+                      automatiquement dès que les livreurs commenceront leurs
+                      tournées
+                    </p>
+                    <div className="mt-8 flex justify-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce shadow-blue-500/50 shadow-lg"></div>
+                      <div
+                        className="w-3 h-3 bg-blue-400 rounded-full animate-bounce shadow-blue-400/50 shadow-lg"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="w-3 h-3 bg-blue-300 rounded-full animate-bounce shadow-blue-300/50 shadow-lg"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-[500px] bg-gray-900/50 rounded-3xl border border-gray-700/50 p-6 backdrop-blur-sm">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={deliveryChartData}
+                      margin={{ top: 30, right: 40, left: 30, bottom: 80 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="#374151"
+                        strokeOpacity={0.4}
+                      />
+                      <XAxis
+                        dataKey="name"
+                        tick={{
+                          fontSize: 13,
+                          fill: "#D1D5DB",
+                          fontWeight: "600",
+                        }}
+                        axisLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                        tickLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                        interval={0}
+                      />
+                      <YAxis
+                        tick={{
+                          fontSize: 13,
+                          fill: "#D1D5DB",
+                          fontWeight: "600",
+                        }}
+                        axisLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                        tickLine={{ stroke: "#4B5563", strokeWidth: 2 }}
+                      />
+                      <Tooltip content={<CustomDeliveryTooltip />} />
+                      <Legend />
+                      <Bar
+                        dataKey="amount"
+                        name="Montant (FCFA)"
+                        radius={[8, 8, 0, 0]}
+                      >
+                        {deliveryChartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={getDeliveryBarColor(entry.status)}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Légende des couleurs pour les livraisons */}
+              <div className="mt-8 pt-6 border-t border-gray-700/50">
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold text-white mb-2 tracking-wide">
+                    Statuts des Livraisons
+                  </h3>
+                  <p className="text-sm text-gray-400 font-medium tracking-wide">
+                    Classification des livraisons par état d&apos;avancement
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                  <div className="flex items-center gap-4 p-6 bg-emerald-500/10 rounded-2xl border border-emerald-400/20 backdrop-blur-sm hover:bg-emerald-500/20 transition-all duration-300 transform hover:scale-105">
+                    <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl shadow-emerald-500/50 shadow-lg"></div>
+                    <div className="flex-1">
+                      <span className="text-white font-bold tracking-wide block text-base">
+                        Livraisons Terminées
+                      </span>
+                      <p className="text-emerald-400 text-xs mt-2 font-medium tracking-wide">
+                        Commandes livrées avec succès
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-6 bg-amber-500/10 rounded-2xl border border-amber-400/20 backdrop-blur-sm hover:bg-amber-500/20 transition-all duration-300 transform hover:scale-105">
+                    <div className="w-6 h-6 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-xl shadow-amber-500/50 shadow-lg"></div>
+                    <div className="flex-1">
+                      <span className="text-white font-bold tracking-wide block text-base">
+                        Livraisons en Cours
+                      </span>
+                      <p className="text-amber-400 text-xs mt-2 font-medium tracking-wide">
+                        Commandes en cours de livraison
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-6 bg-red-500/10 rounded-2xl border border-red-400/20 backdrop-blur-sm hover:bg-red-500/20 transition-all duration-300 transform hover:scale-105">
+                    <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-rose-500 rounded-xl shadow-red-500/50 shadow-lg"></div>
+                    <div className="flex-1">
+                      <span className="text-white font-bold tracking-wide block text-base">
+                        Livraisons Annulées
+                      </span>
+                      <p className="text-red-400 text-xs mt-2 font-medium tracking-wide">
+                        Commandes annulées ou échouées
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "sale" && (
+          <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30">
+            <SaleDashbord />
           </div>
-        </>
-      )}
-      {activeTab === "sale" && <><SaleDashbord/></>}
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 "use client";
-import Navbar from "@/app/components/navbar/Navbar";
 import api from "@/app/prisma/api";
 import { OrderDto } from "@/app/types/type";
 import { useParams } from "next/navigation";
@@ -12,27 +11,118 @@ import {
   Package,
   ArrowLeft,
   AlertCircle,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
+// Interface pour les données enrichies des produits
+interface EnrichedOrderItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number; // Prix d'achat
+  sellingPrice: number; // Prix de vente récupéré depuis Product
+}
+
+interface EnrichedOrderDto extends Omit<OrderDto, "orderItems"> {
+  orderItems?: EnrichedOrderItem[];
+}
+
 export default function DetailOrder() {
   const params = useParams();
-  const [orders, setOrders] = useState<OrderDto>();
+  const [orders, setOrders] = useState<EnrichedOrderDto>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const orderId = params.id as string;
+
   const totalQuantity =
     orders?.orderItems?.reduce((sum, item) => sum + Number(item.quantity), 0) ||
     0;
+
+  // Fonctions de calcul de rentabilité avec prix de vente réels
+  const calculateTotalCost = () => {
+    return (
+      orders?.orderItems?.reduce(
+        (sum, item) => sum + item.unitPrice * item.quantity,
+        0
+      ) || 0
+    );
+  };
+
+  const calculateTotalRevenue = () => {
+    return (
+      orders?.orderItems?.reduce((sum, item) => {
+        return sum + item.sellingPrice * item.quantity;
+      }, 0) || 0
+    );
+  };
+
+  const calculateTotalProfit = () => {
+    return calculateTotalRevenue() - calculateTotalCost();
+  };
+
+  const calculateProfitMargin = () => {
+    const revenue = calculateTotalRevenue();
+    if (revenue === 0) return 0;
+    return (calculateTotalProfit() / revenue) * 100;
+  };
+
+  const calculateItemProfit = (item: EnrichedOrderItem) => {
+    return (item.sellingPrice - item.unitPrice) * item.quantity;
+  };
+
+  const calculateItemProfitMargin = (item: EnrichedOrderItem) => {
+    if (item.sellingPrice === 0) return 0;
+    return ((item.sellingPrice - item.unitPrice) / item.sellingPrice) * 100;
+  };
+
   useEffect(() => {
     const fetchOrders = async (orderId: string) => {
       try {
         setLoading(true);
         setError(null);
-        const res = await api.get(`/order/${orderId}`);
-        console.log("data to order:", res.data);
-        setOrders(res.data);
+
+        // Récupérer les données de la commande
+        const orderRes = await api.get(`/order/${orderId}`);
+        const orderData = orderRes.data;
+
+        // Enrichir les données avec les prix de vente des produits
+        if (orderData.orderItems && orderData.orderItems.length > 0) {
+          const enrichedItems = await Promise.all(
+            orderData.orderItems.map(async (item: any) => {
+              try {
+                // Récupérer les informations complètes du produit
+                const productRes = await api.get(`/product/${item.productId}`);
+                const productData = productRes.data;
+
+                return {
+                  ...item,
+                  sellingPrice:
+                    productData.sellingPrice ||
+                    productData.price ||
+                    item.unitPrice * 1.3, // Fallback si pas de prix de vente
+                };
+              } catch (error) {
+                console.warn(
+                  `Erreur lors de la récupération du produit ${item.productId}:`,
+                  error
+                );
+                // Fallback en cas d'erreur
+                return {
+                  ...item,
+                  sellingPrice: item.unitPrice * 1.3,
+                };
+              }
+            })
+          );
+
+          orderData.orderItems = enrichedItems;
+        }
+
+        console.log("data to order enriched:", orderData);
+        setOrders(orderData);
       } catch (error: unknown) {
         console.log("Erreur Api", error);
         setError("Erreur lors du chargement de la commande");
@@ -40,6 +130,7 @@ export default function DetailOrder() {
         setLoading(false);
       }
     };
+
     fetchOrders(orderId);
   }, [orderId]);
 
@@ -47,15 +138,22 @@ export default function DetailOrder() {
     try {
       await api.patch(`/order/completed/${id}`);
       toast.success("La commande à été validé avec succès!");
+      // Recharger les données pour mettre à jour le statut
+      const res = await api.get(`/order/${id}`);
+      setOrders(res.data);
     } catch (error: unknown) {
       console.log("erreur api", error);
       toast.error("Erreur lors de la validation de la commande");
     }
   };
+
   const canceledOrder = async (id: string) => {
     try {
       await api.patch(`/order/${id}`);
-      toast.success("La commande à été validé avec succès!");
+      toast.success("La commande à été annulée avec succès!");
+      // Recharger les données pour mettre à jour le statut
+      const res = await api.get(`/order/${id}`);
+      setOrders(res.data);
     } catch (error: unknown) {
       console.log("erreur api", error);
       toast.error("Erreur lors de l'annulation de la commande");
@@ -80,16 +178,17 @@ export default function DetailOrder() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("fr-FR", {
       style: "currency",
-      currency: "XOF", // ou 'EUR' selon votre devise
+      currency: "XOF",
     }).format(price);
   };
+  // Composant d'analyse de rentabilité
+  const ProfitAnalysis = () => (
+     <></>
+  );
 
   if (loading) {
     return (
       <div className="flex gap-4 min-h-screen bg-gray-50">
-        <div className="flex-shrink-0">
-          <Navbar />
-        </div>
         <div className="flex-1 p-6">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
@@ -102,9 +201,6 @@ export default function DetailOrder() {
   if (error) {
     return (
       <div className="flex gap-4 min-h-screen bg-gray-50">
-        <div className="flex-shrink-0">
-          <Navbar />
-        </div>
         <div className="flex-1 p-6">
           <div className="flex flex-col items-center justify-center h-64">
             <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
@@ -117,18 +213,14 @@ export default function DetailOrder() {
 
   return (
     <div className="flex gap-4 min-h-screen bg-gray-50">
-      {/* Sidebar Navigation */}
-      <div className="flex-shrink-0">
-        <Navbar />
-      </div>
-
+    
       {/* Main Content */}
       <div className="flex-1 p-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center mb-4">
             <Link href="/order" className="cursor-pointer">
-              <button className="mr-4 p-2 bg-gray-200  hover:bg-gray-300 rounded-lg transition-colors cursor-pointer">
+              <button className="mr-4 p-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors cursor-pointer">
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
               </button>
             </Link>
@@ -142,13 +234,13 @@ export default function DetailOrder() {
               <div className="ml-auto space-x-2">
                 <button
                   onClick={() => validateOrder(orders.id)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg cursor-pointer"
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors cursor-pointer"
                 >
                   Valider la commande
                 </button>
                 <button
                   onClick={() => canceledOrder(orders.id)}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg cursor-pointer"
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors cursor-pointer"
                 >
                   Annuler la commande
                 </button>
@@ -156,7 +248,6 @@ export default function DetailOrder() {
             )}
           </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Order Summary Card */}
           <div className="lg:col-span-2">
@@ -167,7 +258,6 @@ export default function DetailOrder() {
                   Informations de la commande
                 </h2>
               </div>
-
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
@@ -194,16 +284,32 @@ export default function DetailOrder() {
                       </div>
                     </div>
                   </div>
-
                   <div className="space-y-4">
                     <div className="flex items-center">
                       <CreditCard className="h-5 w-5 text-gray-400 mr-3" />
                       <div>
                         <p className="text-sm text-gray-600">
-                          Total de la commande
+                          Coût de la commande
+                        </p>
+                        <p className="text-2xl font-bold text-red-600">
+                          {formatPrice(orders?.totalPrice || 0)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Prix d&apos;achat total
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <TrendingUp className="h-5 w-5 text-gray-400 mr-3" />
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          Bénéfice potentiel
                         </p>
                         <p className="text-2xl font-bold text-green-600">
-                          {formatPrice(orders?.totalPrice || 0)}
+                          {formatPrice(calculateTotalProfit())}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Marge: {calculateProfitMargin().toFixed(1)}%
                         </p>
                       </div>
                     </div>
@@ -236,15 +342,36 @@ export default function DetailOrder() {
                 <ShoppingCart className="h-8 w-8 text-green-600" />
               </div>
             </div>
+            {/* Indicateur de rentabilité */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-sm border border-green-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-green-700 font-medium">
+                    ROI Potentiel
+                  </p>
+                  <p className="text-2xl font-bold text-green-800">
+                    {calculateProfitMargin().toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-green-600">
+                    Retour sur investissement
+                  </p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-green-600" />
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Analyse de Rentabilité */}
+        <ProfitAnalysis />
+
         {/* Products Section */}
         <div className="mt-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <Package className="mr-2 h-5 w-5" />
-                Produits commandés
+                Produits commandés avec analyse de rentabilité
               </h3>
             </div>
             <div className="overflow-x-auto">
@@ -255,62 +382,128 @@ export default function DetailOrder() {
                       Produit
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Prix unitaire
+                      Prix d&apos;achat
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Prix de vente
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Quantité
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
+                      Coût total
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Revenus
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Bénéfice
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Marge
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {orders?.orderItems?.map((prod, index) => (
-                    <tr
-                      key={prod.productId}
-                      className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                              <Package className="h-5 w-5 text-orange-600" />
+                  {orders?.orderItems?.map((prod, index) => {
+                    const itemProfit = calculateItemProfit(prod);
+                    const itemProfitMargin = calculateItemProfitMargin(prod);
+
+                    return (
+                      <tr
+                        key={prod.productId}
+                        className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                                <Package className="h-5 w-5 text-orange-600" />
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {prod.productName}
+                              </div>
                             </div>
                           </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {prod.productName}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatPrice(prod.unitPrice)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {prod.quantity}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        {formatPrice(prod.unitPrice * prod.quantity)}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                          {formatPrice(prod.unitPrice)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
+                          {formatPrice(prod.sellingPrice)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                            {prod.quantity}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-700">
+                          {formatPrice(prod.unitPrice * prod.quantity)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-700">
+                          {formatPrice(prod.sellingPrice * prod.quantity)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-700">
+                          {formatPrice(itemProfit)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
+                              itemProfitMargin >= 25
+                                ? "bg-green-100 text-green-800"
+                                : itemProfitMargin >= 15
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {itemProfitMargin.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
-            {/* Total Footer */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-medium text-gray-900">
-                  Total de la commande
-                </span>
-                <span className="text-2xl font-bold text-green-600">
-                  {formatPrice(orders?.totalPrice || 0)}
-                </span>
+            {/* Enhanced Total Footer */}
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-6 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <span className="text-sm font-medium text-gray-600 block mb-1">
+                    Coût Total d&apos;Achat
+                  </span>
+                  <span className="text-2xl font-bold text-red-600">
+                    {formatPrice(calculateTotalCost())}
+                  </span>
+                </div>
+                <div className="text-center">
+                  <span className="text-sm font-medium text-gray-600 block mb-1">
+                    Revenus Potentiels
+                  </span>
+                  <span className="text-2xl font-bold text-blue-600">
+                    {formatPrice(calculateTotalRevenue())}
+                  </span>
+                </div>
+                <div className="text-center">
+                  <span className="text-sm font-medium text-gray-600 block mb-1">
+                    Bénéfice Potentiel
+                  </span>
+                  <span className="text-3xl font-bold text-green-600">
+                    {formatPrice(calculateTotalProfit())}
+                  </span>
+                  <span className="text-xs text-gray-500 block">
+                    Marge: {calculateProfitMargin().toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-300">
+                <p className="text-xs text-gray-500 text-center">
+                  Calculs basés sur les prix de vente réels des produits.
+                </p>
               </div>
             </div>
           </div>

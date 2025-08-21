@@ -179,7 +179,6 @@ const CustomerTable: React.FC<CustomerTableProps> = ({
     </div>
   );
 };
-
 // Composant Pagination réutilisable
 const Pagination: React.FC<PaginationProps> = ({
   currentPage,
@@ -275,7 +274,7 @@ const Customer: React.FC = () => {
   const [totalItems, setTotalItems] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
+  const totalCustomer =customers.length
   const limit: number = 10;
   const { user } = useAuth();
   const tenantId: string | undefined = user?.tenantId;
@@ -375,14 +374,14 @@ const Customer: React.FC = () => {
                 </h1>
                 {!loading && (
                   <p className="text-gray-600 mt-1">
-                    {totalItems} client{totalItems > 1 ? "s" : ""} au total
+                    {totalCustomer} client{totalCustomer > 1 ? "s" : ""} au
+                    total
                   </p>
                 )}
               </div>
             </div>
           </div>
         </div>
-
         {/* Customer Table */}
         <div className="space-y-0">
           <CustomerTable
