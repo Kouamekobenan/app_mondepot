@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { useEffect, useState, useCallback } from "react";
 import {
   User,
@@ -79,7 +80,7 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, selectedRole]);
+  }, [currentPage, searchTerm, selectedRole, tenantId]);
 
   // Debouncing pour la recherche
   useEffect(() => {
@@ -93,12 +94,12 @@ export default function Page() {
     }, 500); // Attendre 500ms après l'arrêt de la saisie
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, selectedRole]);
+  }, [searchTerm, selectedRole, currentPage, fetchUsers]);
 
   // Effet pour les changements de page
   useEffect(() => {
     fetchUsers();
-  }, [currentPage]);
+  }, [currentPage, fetchUsers]);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {

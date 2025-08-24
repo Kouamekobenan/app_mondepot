@@ -1,5 +1,5 @@
 "use client";
-
+export const dynamic = "force-dynamic";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -330,7 +330,7 @@ const DirectSaleHome: React.FC = () => {
                 href="/directeSale/create"
                 className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
               >
-                <Plus size={16} className="mr-2"/>
+                <Plus size={16} className="mr-2" />
                 Créer une vente
               </Link>
             </div>

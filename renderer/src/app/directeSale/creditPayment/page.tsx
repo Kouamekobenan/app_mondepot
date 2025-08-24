@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import api, { formatDate } from "@/app/prisma/api";
 import { directSaleDto } from "@/app/types/type";
 import React, { useEffect, useState, useMemo, useCallback } from "react";
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { handleBack } from "@/app/types/handleApi";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation"; 
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 interface CreditPaymentForm {
   directSaleId: string;
@@ -126,11 +127,12 @@ export default function Page() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [selectedSale, setSelectedSale] = useState<directSaleDto | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
-  const [isSubmittingPayment, setIsSubmittingPayment] =useState<boolean>(false);
- const router = useRouter();
+  const [isSubmittingPayment, setIsSubmittingPayment] =
+    useState<boolean>(false);
+  const router = useRouter();
   const limit = 10;
-  const {user} =useAuth()
-  const tenantId =user?.tenantId
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
 
   const [creditPayment, setCreditPayment] = useState<CreditPaymentForm>({
     directSaleId: "",
@@ -163,6 +165,35 @@ export default function Page() {
     },
     [selectedSale]
   );
+  const fetchSales = useCallback(async () => {
+    try {
+      setLoading(true);
+      setErrors(""); // Reset errors
+
+      const result = await api.get(`/directeSale/credit/${tenantId}`, {
+        params: {
+          limit,
+          page: currentPage,
+        },
+      });
+
+      if (result.data && Array.isArray(result.data.data)) {
+        setSales(result.data.data);
+        setTotalPages(result.data.totalPages || 1);
+      } else {
+        throw new Error("Format de données invalide");
+      }
+    } catch (error: unknown) {
+      console.error("API Error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      setErrors(`Erreur lors du chargement des crédits: ${errorMessage}`);
+      setSales([]);
+      setTotalPages(1);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, tenantId]);
 
   // Gestion des paiements avec validation améliorée
   const handleCreatePayment = useCallback(async () => {
@@ -193,6 +224,7 @@ export default function Page() {
       });
       setShowPaymentModal(false);
       setSelectedSale(null);
+
       // Recharger les données pour refléter les changements
       await fetchSales();
       router.push(`/print/${selectedSale?.id}`);
@@ -207,7 +239,13 @@ export default function Page() {
     } finally {
       setIsSubmittingPayment(false);
     }
-  }, [creditPayment.amount, selectedSale?.id, validatePaymentForm]);
+  }, [
+    fetchSales,
+    creditPayment.amount,
+    selectedSale?.id,
+    validatePaymentForm,
+    router, // ajouté
+  ]);
 
   // Amélioration de la gestion des montants
   const handleAmountChange = useCallback((value: string): void => {
@@ -244,35 +282,6 @@ export default function Page() {
   }, [sales, searchTerm]);
 
   // Fonction de récupération des données extraite et améliorée
-  const fetchSales = useCallback(async () => {
-    try {
-      setLoading(true);
-      setErrors(""); // Reset errors
-
-      const result = await api.get(`/directeSale/credit/${tenantId}`, {
-        params: {
-          limit,
-          page: currentPage,
-        },
-      });
-
-      if (result.data && Array.isArray(result.data.data)) {
-        setSales(result.data.data);
-        setTotalPages(result.data.totalPages || 1);
-      } else {
-        throw new Error("Format de données invalide");
-      }
-    } catch (error: unknown) {
-      console.error("API Error:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      setErrors(`Erreur lors du chargement des crédits: ${errorMessage}`);
-      setSales([]);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage]);
 
   // Récupération des données
   useEffect(() => {

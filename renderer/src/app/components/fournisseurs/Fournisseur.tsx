@@ -152,7 +152,7 @@ export default function Fournisseur() {
       {TABLE_COLUMNS.map((column) => (
         <div
           key={column.key}
-          className={`${column.width} ${column.align || "text-left"}`}
+          className={`${column.width} ${"text-left"}`}
         >
           {column.label}
         </div>

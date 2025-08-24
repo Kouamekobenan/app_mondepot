@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import DirectSaleForm from "@/app/components/directeSale/CreateSale";
 import React from "react";
 

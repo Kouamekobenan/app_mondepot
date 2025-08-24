@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React from "react";
 import Navbar from "../components/navbar/Navbar";
 import Dashboard from "../components/dashbord/Dashbord";

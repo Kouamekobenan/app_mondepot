@@ -1,5 +1,5 @@
 "use client";
-
+export const dynamic = "force-dynamic";
 import React, { useEffect, useState, useCallback } from "react";
 import api from "@/app/prisma/api";
 import { fournisseurDto } from "@/app/types/type";
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/app/components/forms/Button";
 import { handleBack } from "@/app/types/handleApi";
 import { useAuth } from "@/app/context/AuthContext";
+import { AxiosError } from "axios";
 
 // Types et interfaces
 interface ProvisioningFormData {
@@ -55,7 +56,7 @@ const INITIAL_LOADING_STATE: LoadingState = {
 export default function ProvisioningPage() {
   const params = useParams();
   const router = useRouter();
-  const productId = params.id as string;
+  const productId = params?.id as string;
 
   // États
   const [formData, setFormData] =
@@ -96,7 +97,7 @@ export default function ProvisioningPage() {
       let errorMessage = "Une erreur inconnue est survenue";
 
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as any;
+        const axiosError = error as AxiosError<{ message?: string }>;
         if (axiosError.response?.status === 401) {
           toast.error("Session expirée. Veuillez vous reconnecter.");
           router.push("/login");
@@ -133,7 +134,7 @@ export default function ProvisioningPage() {
     } finally {
       setLoading((prev) => ({ ...prev, suppliers: false }));
     }
-  }, [handleApiError]);
+  }, [handleApiError, tennantId]);
 
   /**
    * Récupération des données du produit

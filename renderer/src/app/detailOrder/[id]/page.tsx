@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import api from "@/app/prisma/api";
 import { OrderDto } from "@/app/types/type";
 import { useParams } from "next/navigation";
@@ -16,7 +17,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-
 // Interface pour les données enrichies des produits
 interface EnrichedOrderItem {
   productId: string;
@@ -24,6 +24,13 @@ interface EnrichedOrderItem {
   quantity: number;
   unitPrice: number; // Prix d'achat
   sellingPrice: number; // Prix de vente récupéré depuis Product
+}
+
+interface OrderItem {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
 }
 
 interface EnrichedOrderDto extends Omit<OrderDto, "orderItems"> {
@@ -35,7 +42,7 @@ export default function DetailOrder() {
   const [orders, setOrders] = useState<EnrichedOrderDto>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const orderId = params.id as string;
+  const orderId = params?.id as string;
 
   const totalQuantity =
     orders?.orderItems?.reduce((sum, item) => sum + Number(item.quantity), 0) ||
@@ -91,7 +98,7 @@ export default function DetailOrder() {
         // Enrichir les données avec les prix de vente des produits
         if (orderData.orderItems && orderData.orderItems.length > 0) {
           const enrichedItems = await Promise.all(
-            orderData.orderItems.map(async (item: any) => {
+            orderData.orderItems.map(async (item: OrderItem) => {
               try {
                 // Récupérer les informations complètes du produit
                 const productRes = await api.get(`/product/${item.productId}`);
@@ -182,9 +189,7 @@ export default function DetailOrder() {
     }).format(price);
   };
   // Composant d'analyse de rentabilité
-  const ProfitAnalysis = () => (
-     <></>
-  );
+  const ProfitAnalysis = () => <></>;
 
   if (loading) {
     return (
@@ -213,7 +218,6 @@ export default function DetailOrder() {
 
   return (
     <div className="flex gap-4 min-h-screen bg-gray-50">
-    
       {/* Main Content */}
       <div className="flex-1 p-6">
         {/* Header */}

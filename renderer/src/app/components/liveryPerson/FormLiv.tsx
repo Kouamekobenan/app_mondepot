@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import React, { useEffect, useState } from "react";
 import { Button } from "../forms/Button";
 import { DoorClosed } from "lucide-react";

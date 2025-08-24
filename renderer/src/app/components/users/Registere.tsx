@@ -1,19 +1,23 @@
 "use client";
+export const dynamic = "force-dynamic";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "../forms/Button";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
-import api from "@/app/prisma/api"; // Assure-toi que ce fichier exporte bien une instance axios
+import api from "@/app/prisma/api";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 
 export default function Register() {
+  const [mounted, setMounted] = useState(false); // 🚀 nouvelle protection
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
   const { user } = useAuth();
   const tenantId = user?.tenantId;
+
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -23,11 +27,21 @@ export default function Register() {
     role: "ADMIN",
   });
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    // 🚀 évite l'erreur SSR, attend le rendu client
+    return null;
+  }
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -58,9 +72,11 @@ export default function Register() {
       setLoading(false);
     }
   };
+
   const handleBack = () => {
     window.history.back();
   };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Toaster position="top-right" />
@@ -77,6 +93,7 @@ export default function Register() {
           Créer votre compte
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Champs du formulaire */}
           <input
             type="email"
             name="email"
@@ -86,6 +103,7 @@ export default function Register() {
             placeholder="Saisissez votre adresse mail"
             className="w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white"
           />
+
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -104,6 +122,7 @@ export default function Register() {
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
+
           <input
             type="text"
             name="name"
@@ -130,8 +149,8 @@ export default function Register() {
           >
             <option value="ADMIN">Admin</option>
             <option value="MANAGER">Manager</option>
-            {/* <option value="DELIVERY_PERSON">Livreur</option> */}
           </select>
+
           <Button
             type="submit"
             disabled={loading}

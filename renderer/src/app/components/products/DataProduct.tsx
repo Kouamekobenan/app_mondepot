@@ -20,6 +20,7 @@ import { useAuth } from "@/app/context/AuthContext";
 // Types et interfaces
 interface PaginatedResponse {
   products: productItems[];
+  data?: productItems[];
   total: number;
   totalPage: number;
   page: number;
@@ -29,6 +30,11 @@ interface ProductFilters {
   name?: string;
   page: number;
   limit: number;
+}
+interface paginateItem {
+  limit: number;
+  page: number;
+  name?: string;
 }
 // Configuration des constantes
 const PRODUCTS_PER_PAGE = 5;
@@ -108,7 +114,7 @@ export default function DataProduct() {
         const endpoint = filter.name?.trim()
           ? `/product/filter/${tenantId}`
           : `/product/paginate/${tenantId}`;
-        const params: any = {
+        const params: paginateItem = {
           page: filter.page,
           limit: filter.limit,
         };
@@ -135,9 +141,6 @@ export default function DataProduct() {
         } else if (Array.isArray(response.data)) {
           fetchedProducts = response.data;
           totalPage = 1;
-        } else if (response.data.items !== undefined) {
-          fetchedProducts = response.data.items;
-          totalPage = response.data.totalPage || response.data.totalPages || 1;
         } else {
           fetchedProducts = [];
           totalPage = 1;

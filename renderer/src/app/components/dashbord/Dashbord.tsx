@@ -167,7 +167,7 @@ export default function Dashboard({ lowStockThreshold = 10 }: DashboardProps) {
   // Chargement initial uniquement
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   // Transformation des données pour le graphique des stocks
   const chartData: ChartData[] = product.map((item) => ({
@@ -437,7 +437,7 @@ export default function Dashboard({ lowStockThreshold = 10 }: DashboardProps) {
         <div className="bg-gray-800/40 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-gray-700/30">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
             <div className="mb-6 lg:mb-0">
-              <h1 className="text-4xl font-black text-white tracking-tight bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-blac tracking-tight bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                 Dashboard Analytics
               </h1>
               {lastUpdated && (

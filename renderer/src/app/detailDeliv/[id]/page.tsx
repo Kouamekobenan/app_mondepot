@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { Button } from "@/app/components/forms/Button";
 import Navbar from "@/app/components/navbar/Navbar";
 import api, { formatDate } from "@/app/prisma/api";
@@ -9,9 +10,10 @@ import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+
 export default function DetailDelivery() {
   const params = useParams();
-  const deliveryId = params.id as string;
+  const deliveryId = params?.id as string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<deliveryDto | null>(null);

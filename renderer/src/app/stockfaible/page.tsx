@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
+import React, { useCallback, useEffect, useState } from "react";
 import Navbar from "../components/navbar/Navbar";
 import { productItems } from "../types/type";
 import api from "../prisma/api";
@@ -27,51 +28,59 @@ export default function LowStockProductsPage() {
   const stockThreshold = 10;
 
   // Fonction pour récupérer les produits avec stock faible
-  const fetchLowStockProducts = async (page: number = 1) => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await api.get(`/product/lower/${tenantId}`, {
-        params: {
-          limit,
-          page,
-        },
-      });
-
-      const productData: PaginationData = response.data;
-
-      if (Array.isArray(productData.data)) {
-        setProducts(productData.data);
-        setTotalPages(productData.totalPage || 1);
-        setPage(productData.page || page);
-        setTotal(productData.total || 0);
-      } else {
-        throw new Error("Format de données invalide");
+  const fetchLowStockProducts = useCallback(
+    async (pageNumber: number = 1): Promise<void> => {
+      if (!tenantId) {
+        setError("ID tenant manquant");
+        return;
       }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Erreur lors de la récupération des produits";
 
-      console.error(
-        "Échec de récupération des produits avec stock critique:",
-        error
-      );
-      setError(`Impossible de charger les produits: ${errorMessage}`);
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await api.get(`/product/lower/${tenantId}`, {
+          params: {
+            limit,
+            page: pageNumber,
+          },
+        });
+
+        const productData: PaginationData = response.data;
+
+        if (Array.isArray(productData.data)) {
+          setProducts(productData.data);
+          setTotalPages(productData.totalPage || 1);
+          setPage(productData.page || pageNumber);
+          setTotal(productData.total || 0);
+        } else {
+          throw new Error("Format de données invalide");
+        }
+      } catch (error: unknown) {
+        const errorMessage: string =
+          error instanceof Error
+            ? error.message
+            : "Erreur lors de la récupération des produits";
+
+        console.error(
+          "Échec de récupération des produits avec stock critique:",
+          error
+        );
+        setError(`Impossible de charger les produits: ${errorMessage}`);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [tenantId, limit]
+  );
 
   // Chargement initial
   useEffect(() => {
     if (tenantId) {
       fetchLowStockProducts(1);
     }
-  }, [tenantId]);
+  }, [tenantId, fetchLowStockProducts]);
 
   // Fonction pour changer de page
   const handlePageChange = (newPage: number) => {

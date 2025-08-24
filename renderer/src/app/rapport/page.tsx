@@ -1,18 +1,37 @@
 "use client";
-import React, { useState, useEffect } from "react";
+export const dynamic = "force-dynamic";
+import React, { useState, useEffect, useCallback } from "react";
 import { deliveryDto } from "../types/type";
-import api from "../prisma/api";
+import api, { formatDate } from "../prisma/api";
 import { useAuth } from "../context/AuthContext";
 
-export default function CreerRapport() {
-  const [startDate, setStartDate] = useState("2025-07-01");
-  const [endDate, setEndDate] = useState("2025-07-22");
+interface Statistics {
+  totalDeliveries: number;
+  completedDeliveries: number;
+  totalProducts: number;
+  totalDelivered: number;
+  totalReturned: number;
+  totalRevenue: number;
+}
+
+interface User {
+  tenantId: string;
+  // Ajoutez d'autres propriétés selon votre type User
+}
+
+interface AuthContextType {
+  user: User | null;
+}
+
+export default function CreerRapport(): React.JSX.Element {
+  const [startDate, setStartDate] = useState<string>("2025-07-01");
+  const [endDate, setEndDate] = useState<string>("2025-07-22");
   const [deliveries, setDeliveries] = useState<deliveryDto[]>([]);
   const [filteredDeliveries, setFilteredDeliveries] = useState<deliveryDto[]>(
     []
   );
-  const [loading, setLoading] = useState(false);
-  const [statistics, setStatistics] = useState({
+  const [loading, setLoading] = useState<boolean>(false);
+  const [statistics, setStatistics] = useState<Statistics>({
     totalDeliveries: 0,
     completedDeliveries: 0,
     totalProducts: 0,
@@ -20,20 +39,29 @@ export default function CreerRapport() {
     totalReturned: 0,
     totalRevenue: 0,
   });
-  const { user } = useAuth();
-  const tenantId = user?.tenantId;
-  const handleBack = () => {
+
+  const { user } = useAuth() as AuthContextType;
+  const tenantId: string | undefined = user?.tenantId;
+
+  const handleBack = (): void => {
     window.history.back();
   };
-  // Fonction pour récupérer les livraisons (remplacez par votre API call)
-  const fetchDeliveries = async () => {
+
+  // Fonction pour récupérer les livraisons
+  const fetchDeliveries = async (): Promise<void> => {
+    if (!tenantId) {
+      console.error("TenantId manquant");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await api.get(`/delivery/tenant/${tenantId}`);
       console.log("Données api", response.data);
 
-      setDeliveries(response.data);
-      filterDeliveriesByDate(response.data);
+      const deliveriesData: deliveryDto[] = response.data;
+      setDeliveries(deliveriesData);
+      filterDeliveriesByDate(deliveriesData);
     } catch (error) {
       console.error("Erreur lors de la récupération des livraisons:", error);
     } finally {
@@ -42,26 +70,29 @@ export default function CreerRapport() {
   };
 
   // Filtrer les livraisons par date
-  const filterDeliveriesByDate = (deliveriesData) => {
-    const filtered = deliveriesData.filter((delivery) => {
-      const deliveryDate = new Date(delivery.createdAt);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Inclure toute la journée de fin
+  const filterDeliveriesByDate = useCallback(
+    (deliveriesData: deliveryDto[]): void => {
+      const filtered = deliveriesData.filter((delivery: deliveryDto) => {
+        const deliveryDate = new Date(delivery.createdAt);
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // Inclure toute la journée de fin
 
-      return deliveryDate >= start && deliveryDate <= end;
-    });
+        return deliveryDate >= start && deliveryDate <= end;
+      });
 
-    setFilteredDeliveries(filtered);
-    calculateStatistics(filtered);
-  };
+      setFilteredDeliveries(filtered);
+      calculateStatistics(filtered);
+    },
+    [endDate, startDate]
+  );
 
   // Calculer les statistiques
-  const calculateStatistics = (deliveriesData) => {
-    const stats = {
+  const calculateStatistics = (deliveriesData: deliveryDto[]): void => {
+    const stats: Statistics = {
       totalDeliveries: deliveriesData.length,
       completedDeliveries: deliveriesData.filter(
-        (d) => d.status === "COMPLETED"
+        (d: deliveryDto) => d.status === "COMPLETED"
       ).length,
       totalProducts: 0,
       totalDelivered: 0,
@@ -69,13 +100,14 @@ export default function CreerRapport() {
       totalRevenue: 0,
     };
 
-    deliveriesData.forEach((delivery) => {
+    deliveriesData.forEach((delivery: deliveryDto) => {
       delivery.deliveryProducts.forEach((dp) => {
-        stats.totalProducts += parseInt(dp.quantity);
-        stats.totalDelivered += parseInt(dp.deliveredQuantity);
-        stats.totalReturned += parseInt(dp.returnedQuantity);
+        stats.totalProducts += parseInt(dp.quantity.toString());
+        stats.totalDelivered += parseInt(dp.deliveredQuantity.toString());
+        stats.totalReturned += parseInt(dp.returnedQuantity.toString());
         stats.totalRevenue +=
-          parseInt(dp.deliveredQuantity) * parseInt(dp.product.price);
+          parseInt(dp.deliveredQuantity.toString()) *
+          parseInt(dp.product.price.toString());
       });
     });
 
@@ -83,28 +115,21 @@ export default function CreerRapport() {
   };
 
   // Générer le rapport
-  const handleGenerateReport = () => {
+  const handleGenerateReport = (): void => {
     fetchDeliveries();
   };
+
   // Format de date pour l'affichage
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   // Format de prix
-  const formatPrice = (price) => {
-    return parseInt(price).toLocaleString("fr-FR") + " FCFA";
+  const formatPrice = (price: string | number): string => {
+    const priceNumber = typeof price === "string" ? parseInt(price) : price;
+    return priceNumber.toLocaleString("fr-FR") + " FCFA";
   };
 
-  // Exporter en CSV (optionnel)
-  const exportToCSV = () => {
-    const csvData = [];
+  // Exporter en CSV
+  const exportToCSV = (): void => {
+    const csvData: (string | number)[][] = [];
     csvData.push([
       "Date",
       "Livreur",
@@ -117,7 +142,7 @@ export default function CreerRapport() {
       "Total",
     ]);
 
-    filteredDeliveries.forEach((delivery) => {
+    filteredDeliveries.forEach((delivery: deliveryDto) => {
       delivery.deliveryProducts.forEach((dp) => {
         csvData.push([
           formatDate(delivery.createdAt),
@@ -138,14 +163,17 @@ export default function CreerRapport() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `rapport_livraisons_${startDate}_${endDate}.pdf`;
+    a.download = `rapport_livraisons_${startDate}_${endDate}.csv`; // Corrigé: .csv au lieu de .pdf
     a.click();
+    window.URL.revokeObjectURL(url); // Nettoyage de l'URL
   };
+
   useEffect(() => {
     if (deliveries.length > 0) {
       filterDeliveriesByDate(deliveries);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, deliveries, filterDeliveriesByDate]);
+
   return (
     <div className="p-6 bg-gray-900 min-h-screen text-white">
       <button
@@ -169,7 +197,9 @@ export default function CreerRapport() {
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setStartDate(e.target.value)
+                }
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -180,7 +210,9 @@ export default function CreerRapport() {
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEndDate(e.target.value)
+                }
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -203,6 +235,7 @@ export default function CreerRapport() {
             </div>
           </div>
         </div>
+
         {/* Statistiques */}
         {filteredDeliveries.length > 0 && (
           <div className="bg-gray-800 p-4 rounded-lg mb-6">
@@ -240,7 +273,7 @@ export default function CreerRapport() {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-400">
-                  {formatPrice(statistics.totalRevenue.toString())}
+                  {formatPrice(statistics.totalRevenue)}
                 </div>
                 <div className="text-sm text-gray-300">
                   Chiffre d&apos;Affaires
@@ -277,7 +310,7 @@ export default function CreerRapport() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {filteredDeliveries.map((delivery) => (
+                  {filteredDeliveries.map((delivery: deliveryDto) => (
                     <tr key={delivery.id} className="hover:bg-gray-750">
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
                         {formatDate(delivery.createdAt)}
@@ -318,10 +351,8 @@ export default function CreerRapport() {
                               <div className="text-sm text-gray-300">
                                 Prix: {formatPrice(dp.product.price)} | Total:{" "}
                                 {formatPrice(
-                                  (
-                                    Number(dp.deliveredQuantity) *
+                                  Number(dp.deliveredQuantity) *
                                     Number(dp.product.price)
-                                  ).toString()
                                 )}
                               </div>
                             </div>

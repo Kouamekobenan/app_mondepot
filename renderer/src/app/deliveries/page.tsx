@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { useState } from "react";
 import Navbar from "../components/navbar/Navbar";
 import DeliveryList from "../components/deliveries/DeliveryList";

@@ -1,5 +1,5 @@
 "use client";
-
+export const dynamic = "force-dynamic";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import api from "@/app/prisma/api";

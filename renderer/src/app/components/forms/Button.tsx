@@ -5,7 +5,7 @@ interface ButtonsProps {
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
   className?: string;
-  disabled?: boolean; // ✅ Ajout de la prop disabled
+  disabled?: boolean; 
 }
 
 export const Button: React.FC<ButtonsProps> = ({
@@ -13,7 +13,7 @@ export const Button: React.FC<ButtonsProps> = ({
   onClick,
   type = "button",
   className = "",
-  disabled = false, // ✅ Valeur par défaut
+  disabled = false, //Valeur par défaut
 }) => {
   return (
     <div>

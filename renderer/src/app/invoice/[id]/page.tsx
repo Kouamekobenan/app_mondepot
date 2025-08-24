@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -12,7 +13,6 @@ import { deliveryDto } from "@/app/types/type";
 import { useParams } from "next/navigation";
 import api, { formatDate } from "@/app/prisma/api";
 import { handleBack } from "@/app/types/handleApi";
-
 // Styles CSS pour l'impression
 const printStyles = `
   @media print {
@@ -137,7 +137,7 @@ export default function DeliveryInvoice() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const params = useParams();
-  const deliveryId = params.id as string;
+  const deliveryId = params?.id as string;
 
   useEffect(() => {
     const fetchDelivery = async () => {

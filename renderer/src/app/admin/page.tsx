@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Package,
   Truck,
@@ -57,7 +58,7 @@ const Admin = () => {
   }, [tenantId]);
 
   // Charger les ventes sur période
-  const fetchSaleDay = async () => {
+  const fetchSaleDay = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
     try {
@@ -70,11 +71,11 @@ const Admin = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId, startDate, endDate, setAmountTotal, setLoading]);
 
   useEffect(() => {
     fetchSaleDay();
-  }, [tenantId, startDate, endDate]);
+  }, [tenantId, startDate, endDate, fetchSaleDay]);
 
   useEffect(() => {
     const fetchDeliveries = async () => {

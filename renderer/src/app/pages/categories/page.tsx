@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { Button } from "@/app/components/forms/Button";
 import { Card } from "@/app/components/forms/Card";
 import Loader from "@/app/components/loader/Loder";
@@ -6,7 +7,7 @@ import Navbar from "@/app/components/navbar/Navbar";
 import { useAuth } from "@/app/context/AuthContext";
 import api from "@/app/prisma/api";
 import { SquarePen, Trash2 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 interface Category {
@@ -37,7 +38,7 @@ export default function Page() {
   const { user } = useAuth();
   const tenantId = user?.tenantId;
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -59,9 +60,9 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, tenantId]);
 
-  const filterCategories = async () => {
+  const filterCategories = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -87,7 +88,7 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm, tenantId]);
   const handleApiError = (error: unknown, context: string) => {
     if (typeof error === "object" && error !== null && "response" in error) {
       const axiosError = error as {
@@ -108,7 +109,7 @@ export default function Page() {
     } else {
       fetchCategories();
     }
-  }, [page, searchTerm, tenantId]);
+  }, [page, searchTerm, fetchCategories, filterCategories]);
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;

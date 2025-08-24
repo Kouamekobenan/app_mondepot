@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { useEffect, useRef, useState } from "react";
 import { Download, Phone, Calendar, Hash } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -6,10 +7,11 @@ import api, { formatDate } from "@/app/prisma/api";
 import { OrderDto } from "@/app/types/type";
 import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
+
 export default function InvoicePage() {
   const printRef = useRef(null);
   const params = useParams();
-  const orderId = params.id as string;
+  const orderId = params?.id as string;
   const [order, setOrder] = useState<OrderDto>();
   const { user } = useAuth();
   const tenantName = user?.tenantName ?? "SO";
@@ -34,46 +36,7 @@ export default function InvoicePage() {
     return new Intl.NumberFormat("fr-FR").format(amount) + " FCFA";
   };
   // Creer un message whatSapp pour l'envoyer des factures personnalisés
-  const formatOrderMessage = (order: OrderDto) => {
-    const date = new Date(order?.createdAt).toLocaleDateString("fr-FR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
 
-    const items = order?.orderItems
-      .map(
-        (item) =>
-          `- ${item.productName} | Quantité : ${
-            item.quantity
-          }  | Prix unitaire : ${Number(item.unitPrice).toLocaleString(
-            "fr-FR"
-          )} | total: ${Number(item.unitPrice) * Number(item.quantity)} `
-      )
-      .join("\n");
-    return `
-📦 Nouvelle commande de: ${order?.userName} En (Fcfa)
-
-🗓 Date : ${date}
-🧾 Détails de la commande :
-${items}
-
-💰 Montant total : ${Number(order?.totalPrice).toLocaleString("fr-FR")} FCFA
-
-📞 Contact : ${order?.userPhone}
-📧 Email : ${order?.userMail}
-  `.trim();
-  };
-  function sendOrderViaWhatsApp(order: OrderDto, supplierPhone: string) {
-    const message = formatOrderMessage(order);
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${supplierPhone}?text=${encodedMessage}`;
-    window.open(whatsappUrl, "_blank");
-  }
-  const handleSend = () => {
-    const supplierPhone = "+2250747235898";
-    sendOrderViaWhatsApp(order, supplierPhone);
-  };
   return (
     <>
       {/* Styles d'impression */}
@@ -136,10 +99,7 @@ ${items}
               <Download size={20} />
               Télécharger PDF
             </button>
-            <button
-              onClick={handleSend}
-              className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm"
-            >
+            <button className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium shadow-sm">
               Envoyer par wathSapp
             </button>
           </div>
@@ -201,7 +161,9 @@ ${items}
                       <span className="font-medium text-gray-600">
                         Date d&apos;émission:
                       </span>
-                      <span>{formatDate(order?.updatedAt)}</span>
+                      <span>
+                        {order?.updatedAt && formatDate(order?.updatedAt)}
+                      </span>
                     </div>
                   </div>
                 </div>

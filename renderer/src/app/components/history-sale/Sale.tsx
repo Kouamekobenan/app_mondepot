@@ -10,7 +10,7 @@ import {
   FunnelIcon,
   Search,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 export const Sale = () => {
   const [allDirectSales, setAllDirectSales] = useState<directSaleDto[]>([]);
@@ -39,7 +39,7 @@ export const Sale = () => {
   const paginatedSales = filteredSales.slice(startIndex, endIndex);
 
   // Fonction pour récupérer toutes les ventes (sans filtres backend)
-  const fetchAllDirectSales = async () => {
+  const fetchAllDirectSales = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
     setError("");
@@ -65,7 +65,6 @@ export const Sale = () => {
           hasMoreData = false;
         }
       }
-
       setAllDirectSales(allSales);
       setFilteredSales(allSales);
     } catch (error: unknown) {
@@ -74,29 +73,26 @@ export const Sale = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
 
   useEffect(() => {
     fetchAllDirectSales();
-  }, [tenantId]);
+  }, [tenantId, fetchAllDirectSales]);
 
   // Fonction pour appliquer les filtres côté frontend
-  const applyFilters = () => {
+
+  const applyFilters = useCallback(() => {
     let filtered = [...allDirectSales];
 
-    // Filtre par recherche (recherche dans les produits et montants)
+    // Filtre par recherche
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter((sale) => {
-        // Recherche dans les noms de produits
         const productsMatch = sale.saleItems.some((item) =>
           item.productName.toLowerCase().includes(searchLower)
         );
-
-        // Recherche dans les montants
         const totalPriceMatch = sale.totalPrice.toString().includes(searchTerm);
         const amountPaidMatch = sale.amountPaid.toString().includes(searchTerm);
-
         return productsMatch || totalPriceMatch || amountPaidMatch;
       });
     }
@@ -112,7 +108,7 @@ export const Sale = () => {
 
     if (dateFilter.end) {
       const endDate = new Date(dateFilter.end);
-      endDate.setHours(23, 59, 59, 999); // Inclure toute la journée de fin
+      endDate.setHours(23, 59, 59, 999);
       filtered = filtered.filter((sale) => {
         const saleDate = new Date(sale.createdAt || "");
         return saleDate <= endDate;
@@ -128,8 +124,16 @@ export const Sale = () => {
     }
 
     setFilteredSales(filtered);
-    setCurrentPage(1); // Retour à la première page après filtrage
-  };
+    setCurrentPage(1);
+  }, [
+    allDirectSales,
+    searchTerm,
+    dateFilter,
+    statusFilter,
+    setFilteredSales,
+    setCurrentPage,
+    // getPaymentStatus,
+  ]);
 
   // Fonction de recherche/filtrage
   const handleSearch = () => {
@@ -148,7 +152,7 @@ export const Sale = () => {
   // Appliquer les filtres automatiquement quand les données changent
   useEffect(() => {
     applyFilters();
-  }, [searchTerm, dateFilter, statusFilter, allDirectSales]);
+  }, [searchTerm, dateFilter, statusFilter, allDirectSales, applyFilters]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);

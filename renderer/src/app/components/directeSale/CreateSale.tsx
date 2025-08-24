@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import api, { formatDate } from "@/app/prisma/api";
 import { customerDto, productItems } from "@/app/types/type";
-import Select from "react-select";
+import Select, { SingleValue } from "react-select";
 import {
   Plus,
   User,
@@ -15,11 +15,15 @@ import {
   ShoppingCart,
   Users,
   Trash2,
-  Phone,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { handleBack } from "@/app/types/handleApi";
 import { useRouter } from "next/navigation";
+import {
+  StylesConfig,
+  GroupBase,
+  CSSObjectWithLabel,
+} from "react-select";
 
 interface ProductOption {
   value: string;
@@ -28,15 +32,10 @@ interface ProductOption {
   unitPrice: number;
 }
 
-interface ApiError {
-  response?: {
-    status: number;
-    data?: {
-      message?: string;
-    };
-  };
-  request?: unknown;
-  message?: string;
+interface CustomerOption {
+  value: string;
+  label: string;
+  customer: customerDto;
 }
 
 interface SaleItem {
@@ -51,6 +50,13 @@ interface ClientFormData {
   email: string;
   address: string;
   tenantId: string;
+}
+
+// Types pour les styles de react-select
+interface SelectState {
+  isSelected: boolean;
+  isFocused: boolean;
+  isDisabled?: boolean;
 }
 
 export default function DirectSaleForm() {
@@ -114,6 +120,12 @@ export default function DirectSaleForm() {
     unitPrice: prod.price,
   }));
 
+  const customerOptions: CustomerOption[] = customers.map((customer) => ({
+    value: customer.id,
+    label: `${customer.name} - ${customer.phone}`,
+    customer: customer,
+  }));
+
   const handleAddItem = () => {
     setSaleItems([...saleItems, { productId: "", quantity: 1, unitPrice: 0 }]);
   };
@@ -122,9 +134,17 @@ export default function DirectSaleForm() {
     setSaleItems(saleItems.filter((_, i) => i !== index));
   };
 
-  const handleChangeItem = (index: number, key: keyof SaleItem, value: any) => {
+  const handleChangeItem = (
+    index: number,
+    key: keyof SaleItem,
+    value: string | number
+  ) => {
     const updatedItems = [...saleItems];
-    updatedItems[index][key] = value;
+    if (key === "productId") {
+      updatedItems[index][key] = value as string;
+    } else {
+      updatedItems[index][key] = value as number;
+    }
     setSaleItems(updatedItems);
   };
 
@@ -161,7 +181,7 @@ export default function DirectSaleForm() {
         tenantId: "",
       });
       setShowClientForm(false);
-      toast.success("Client créer avec succès!");
+      toast.success("Client créé avec succès!");
     } catch (error) {
       console.error("Erreur lors de la création du client", error);
     } finally {
@@ -184,6 +204,27 @@ export default function DirectSaleForm() {
     setSelectedClient(client || null);
   };
 
+  const handleProductSelect = (
+    index: number,
+    selectedProduct: SingleValue<ProductOption>
+  ) => {
+    if (selectedProduct) {
+      handleChangeItem(index, "productId", selectedProduct.value);
+      handleChangeItem(index, "unitPrice", selectedProduct.unitPrice);
+    }
+  };
+
+  const handleCustomerSelect = (
+    selectedCustomer: SingleValue<CustomerOption>
+  ) => {
+    if (selectedCustomer) {
+      handleClientSelect(selectedCustomer.value);
+    } else {
+      setSelectedClient(null);
+      setCustomerId("");
+    }
+  };
+
   const handleSubmit = async () => {
     if (isCredit && !customerId) {
       alert("Veuillez sélectionner un client pour une vente à crédit");
@@ -203,7 +244,7 @@ export default function DirectSaleForm() {
       };
       const response = await api.post("/directeSale", payload);
       console.log("Vente directe créée avec succès :", response.data);
-      toast.success("La vente à été effectué avec succès");
+      toast.success("La vente a été effectuée avec succès");
       // Reset form
       setSaleItems([{ productId: "", quantity: 1, unitPrice: 0 }]);
       setAmountPaid(0);
@@ -219,16 +260,23 @@ export default function DirectSaleForm() {
       }
     } catch (error: unknown) {
       console.error("Erreur :", error);
+      toast.error("Erreur lors de l'enregistrement de la vente");
     } finally {
       setIsLoading(false);
     }
   };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR").format(amount);
   };
 
-  const customSelectStyles = {
-    control: (provided: any) => ({
+  // Styles typés pour react-select - Version générique
+  const createCustomSelectStyles = <T,>(): StylesConfig<
+    T,
+    false,
+    GroupBase<T>
+  > => ({
+    control: (provided: CSSObjectWithLabel) => ({
       ...provided,
       minHeight: "40px",
       border: "1px solid #d1d5db",
@@ -241,7 +289,7 @@ export default function DirectSaleForm() {
         boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
       },
     }),
-    option: (provided: any, state: any) => ({
+    option: (provided: CSSObjectWithLabel, state: SelectState) => ({
       ...provided,
       backgroundColor: state.isSelected
         ? "#3b82f6"
@@ -253,7 +301,10 @@ export default function DirectSaleForm() {
         backgroundColor: state.isSelected ? "#3b82f6" : "#eff6ff",
       },
     }),
-  };
+  });
+
+  const customerSelectStyles = createCustomSelectStyles<CustomerOption>();
+  const productSelectStyles = createCustomSelectStyles<ProductOption>();
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -292,6 +343,7 @@ export default function DirectSaleForm() {
             </div>
           </div>
         </div>
+
         <div className="grid grid-cols-12 gap-6">
           {/* Client Form Sidebar */}
           {showClientForm && (
@@ -398,6 +450,7 @@ export default function DirectSaleForm() {
               </div>
             </div>
           )}
+
           {/* Main Content */}
           <div className={`${showClientForm ? "col-span-8" : "col-span-12"}`}>
             {/* Sale Type Selection */}
@@ -430,6 +483,7 @@ export default function DirectSaleForm() {
                 </button>
               </div>
             </div>
+
             {/* Client Selection for Credit Sales */}
             {isCredit && (
               <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
@@ -474,31 +528,16 @@ export default function DirectSaleForm() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <Select
-                      options={customers.map((customer) => ({
-                        value: customer.id,
-                        label: `${customer.name}`,
-                        customer: customer,
-                      }))}
-                      onChange={(selected) => {
-                        if (selected) {
-                          handleClientSelect(selected.value);
-                        } else {
-                          setSelectedClient(null);
-                          setCustomerId("");
-                        }
-                      }}
+                    <Select<CustomerOption>
+                      options={customerOptions}
+                      onChange={handleCustomerSelect}
                       value={
-                        customers
-                          .map((customer) => ({
-                            value: customer.id,
-                            label: `${customer.name} - ${customer.phone}`,
-                            customer: customer,
-                          }))
-                          .find((option) => option.value === customerId) || null
+                        customerOptions.find(
+                          (option) => option.value === customerId
+                        ) || null
                       }
                       placeholder="Rechercher et sélectionner un client..."
-                      styles={customSelectStyles}
+                      styles={customerSelectStyles}
                       isClearable
                       isSearchable
                       noOptionsMessage={() => "Aucun client trouvé"}
@@ -508,6 +547,7 @@ export default function DirectSaleForm() {
                 )}
               </div>
             )}
+
             {/* Sales Items et Récapitulatif côte à côte */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 mb-6">
               {/* Sales Items - 3/4 de la largeur sur grands écrans */}
@@ -536,27 +576,18 @@ export default function DirectSaleForm() {
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Produit
                             </label>
-                            <Select
+                            <Select<ProductOption>
                               options={productOptions}
-                              onChange={(selected) => {
-                                if (selected) {
-                                  handleChangeItem(
-                                    index,
-                                    "productId",
-                                    selected.value
-                                  );
-                                  handleChangeItem(
-                                    index,
-                                    "unitPrice",
-                                    selected.unitPrice
-                                  );
-                                }
-                              }}
-                              value={productOptions.find(
-                                (opt) => opt.value === item.productId
-                              )}
+                              onChange={(selected) =>
+                                handleProductSelect(index, selected)
+                              }
+                              value={
+                                productOptions.find(
+                                  (opt) => opt.value === item.productId
+                                ) || null
+                              }
                               placeholder="Sélectionner un produit"
-                              styles={customSelectStyles}
+                              styles={productSelectStyles}
                               noOptionsMessage={() => "Aucun produit trouvé"}
                             />
                             {item.productId && (
@@ -618,11 +649,7 @@ export default function DirectSaleForm() {
                             </label>
                             <input
                               type="number"
-                              value={
-                                typeof item.unitPrice === "number"
-                                  ? item.unitPrice
-                                  : 0
-                              }
+                              value={item.unitPrice}
                               onChange={(e) =>
                                 handleChangeItem(
                                   index,
@@ -657,6 +684,7 @@ export default function DirectSaleForm() {
                   </div>
                 </div>
               </div>
+
               {/* Récapitulatif financier - 1/4 de la largeur, sticky */}
               <div className="xl:col-span-1">
                 <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 shadow-xl rounded-2xl p-6 space-y-6 sticky top-6">
@@ -772,6 +800,7 @@ export default function DirectSaleForm() {
                 </div>
               </div>
             </div>
+
             {/* Actions */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex justify-end space-x-4">

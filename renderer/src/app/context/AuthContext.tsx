@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../prisma/api";
 import { User } from "../types/type";
@@ -7,21 +8,50 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>; // <- retourne User
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+// Valeur par défaut pour éviter les erreurs SSR
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  isAuthenticated: false,
+  loading: true,
+  login: async () => {
+    throw new Error("AuthProvider not initialized");
+  },
+  logout: () => {
+    console.warn("AuthProvider not initialized");
+  },
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
+
+  // Vérifier si on est côté client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
+    // Ne s'exécute que côté client
+    if (!isClient) return;
+
     const checkAuth = async () => {
       try {
-        const token = await window.electronAPI?.getToken();
+        // Vérifier si electronAPI est disponible
+        if (typeof window === "undefined" || !window.electronAPI) {
+          console.log("ElectronAPI non disponible");
+          setLoading(false);
+          return;
+        }
+
+        const token = await window.electronAPI.getToken();
         console.log("Token récupéré :", token);
 
         if (!token) {
@@ -40,13 +70,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error("Erreur lors de l'authentification :", error);
         setUser(null);
         setIsAuthenticated(false);
+        // Nettoyer le token invalide
+        if (window.electronAPI) {
+          await window.electronAPI.deleteToken();
+        }
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
-  }, []);
+  }, [isClient]);
 
   const login = async (email: string, password: string): Promise<User> => {
     try {
@@ -57,7 +91,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error("Token non trouvé dans la réponse");
       }
 
-      await window.electronAPI?.setToken(token);
+      // Vérifier que electronAPI est disponible avant de l'utiliser
+      if (window.electronAPI) {
+        await window.electronAPI.setToken(token);
+      } else {
+        // Fallback: stocker dans localStorage si electronAPI n'est pas dispo
+        localStorage.setItem("auth_token", token);
+      }
+
       setIsAuthenticated(true);
 
       const userProfile = await api.get<User>("/auth/me", {
@@ -66,33 +107,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(userProfile.data);
 
-      window.electronAPI?.notifyLoginSuccess(
-        "Connexion réussie",
-        `Bienvenue ${userProfile.data.name} !`
-      );
-      return userProfile.data; 
+      // Notification seulement si electronAPI est disponible
+      if (window.electronAPI) {
+        window.electronAPI.notifyLoginSuccess(
+          "Connexion réussie",
+          `Bienvenue ${userProfile.data.name} !`
+        );
+      }
+
+      return userProfile.data;
     } catch (error: unknown) {
       console.error("Échec de la connexion :", error);
       setUser(null);
       setIsAuthenticated(false);
-      const message =
-        "Identifiants incorrects";
+      const message = "Identifiants incorrects";
       throw new Error(message);
     }
   };
+
   const logout = async () => {
-    await window.electronAPI?.deleteToken();
-    setIsAuthenticated(false);
-    setUser(null);
+    try {
+      if (window.electronAPI) {
+        await window.electronAPI.deleteToken();
+      } else {
+        // Fallback: nettoyer localStorage
+        localStorage.removeItem("auth_token");
+      }
+    } catch (error) {
+      console.error("Erreur lors du logout :", error);
+    } finally {
+      setIsAuthenticated(false);
+      setUser(null);
+    }
+  };
+
+  const contextValue: AuthContextType = {
+    user,
+    isAuthenticated,
+    loading: !isClient || loading, // Loading true tant qu'on n'est pas côté client
+    login,
+    logout,
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, isAuthenticated, loading, login, logout }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext)!;
+// Hook corrigé qui ne lance plus d'erreur pendant le SSR
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  // Pendant le SSR ou si le contexte n'est pas disponible, retourner la valeur par défaut
+  if (!context || typeof window === "undefined") {
+    return defaultAuthContext;
+  }
+
+  return context;
+};

@@ -48,11 +48,7 @@ export const CardUser: React.FC<Items> = ({
   return (
     <>
       {/* Import des fonts Google */}
-      <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet"
-      />
-
+      
       <section
         ref={containerRef}
         className="relative w-full flex justify-between items-center gap-6 

@@ -1,12 +1,20 @@
 "use client";
+export const dynamic = "force-dynamic";
 import { useAuth } from "@/app/context/AuthContext";
 import api, { formatDate } from "@/app/prisma/api";
 import { handleBack } from "@/app/types/handleApi";
 import { directSaleDto } from "@/app/types/type";
-import { CalendarDays, PhoneForwarded, Printer, ReceiptSwissFranc, User } from "lucide-react";
+import {
+  CalendarDays,
+  PhoneForwarded,
+  Printer,
+  ReceiptSwissFranc,
+  User,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 // Composants d'icônes définis avant le composant principal
+
 const ArrowLeftIcon = () => (
   <svg
     width="20"
@@ -29,7 +37,7 @@ export default function PrintSale() {
   const userName = user?.name;
   const userPhone = user?.phone;
   const params = useParams();
-  const directeSaleId = params.id as string;
+  const directeSaleId = params?.id as string;
   const totalAmount = directeSale?.saleItems?.length
     ? directeSale.saleItems.reduce(
         (sum, item) => sum + Number(item.totalPrice),

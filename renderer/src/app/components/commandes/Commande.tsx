@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Plus,
@@ -42,7 +44,7 @@ interface PaginationDto {
 
 const CreateOrderComponent = () => {
   // États du composant
-  const [allProducts, setAllProducts] = useState<productItems[]>([]);
+  const [, setAllProducts] = useState<productItems[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<productItems[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -128,7 +130,7 @@ const CreateOrderComponent = () => {
         setProductsLoading(false);
       }
     },
-    [limit, tenantId]
+    [limit, tenantId, searchTerm]
   );
 
   // Debounce pour la recherche
@@ -322,7 +324,7 @@ const CreateOrderComponent = () => {
   const getOutOfStockProducts = () => {
     return filteredProducts.filter((product) => product.stock === 0);
   };
- 
+
   // Composant pour afficher un produit avec ses métriques de rentabilité
   const ProductCard = ({ product }: { product: productItems }) => {
     const quantityInCart = getProductQuantityInCart(product.id);

@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   BarChart,
@@ -31,6 +32,11 @@ const MONTHS = [
   "Novembre",
   "Décembre",
 ] as const;
+import { TooltipProps } from "recharts";
+import {
+  ValueType,
+  NameType,
+} from "recharts/types/component/DefaultTooltipContent";
 
 // Types pour une meilleure type safety
 interface DailyStats {
@@ -59,7 +65,7 @@ interface DeliveryPerson {
 const Page: React.FC = () => {
   const params = useParams<{ id: string }>();
   const [deliveries, setDeliveries] = useState<deliveryDto[]>([]);
-  const [selectedPerson, setSelectedPerson] = useState<string>(params.id || "");
+  const [selectedPerson, setSelectedPerson] = useState<string>(params?.id || "");
   const [selectedMonth, setSelectedMonth] = useState<number>(
     new Date().getMonth()
   );
@@ -84,7 +90,7 @@ const Page: React.FC = () => {
       if (response.data && Array.isArray(response.data)) {
         setDeliveries(response.data);
         // Auto-sélection du premier livreur si aucun n'est sélectionné
-        if (!params.id && response.data.length > 0) {
+        if (!params?.id && response.data.length > 0) {
           const firstDelivery = response.data.find((d) => d.deliveryPersonId);
           if (firstDelivery) {
             setSelectedPerson(firstDelivery.deliveryPersonId);
@@ -99,7 +105,7 @@ const Page: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, params.id]);
+  }, [tenantId, params?.id]);
 
   useEffect(() => {
     fetchDeliveries();
@@ -221,7 +227,11 @@ const Page: React.FC = () => {
   }, [deliveries]);
 
   // Composant Tooltip personnalisé avec meilleure présentation
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip:React.FC<TooltipProps<ValueType, NameType>> = ({
+    active,
+    payload,
+    label,
+  }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white p-4 border-2 border-gray-200 rounded-lg shadow-xl">
@@ -231,7 +241,7 @@ const Page: React.FC = () => {
               {`Quantité: ${payload[0]?.value || 0} unités`}
             </p>
             <p className="text-green-600 font-medium">
-              {`Montant: ${(payload[1]?.value || 0).toFixed(2)} FCFA`}
+              {`Montant: ${(payload[1]?.value || 0)} FCFA`}
             </p>
           </div>
         </div>

@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { useEffect, useState } from "react";
 import Navbar from "../components/navbar/Navbar";
 import { deliveryPersonDto } from "../types/type";
@@ -164,7 +165,7 @@ export default function CreateDelivery() {
 
       const dataToSend = {
         ...formData,
-        tenantId:tenantId,
+        tenantId: tenantId,
         deliveryProducts: formData.deliveryProducts.map((product) => ({
           productId: product.productId,
           quantity: product.quantity,

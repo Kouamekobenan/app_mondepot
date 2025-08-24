@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import { useAuth } from "@/app/context/AuthContext";
 import {
   X,
@@ -17,6 +19,7 @@ interface DeliveryProductInput {
   deliveredQuantity: number;
   returnedQuantity: number;
 }
+
 interface FormDeliveryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,17 +31,21 @@ interface DeliveryData {
   deliveryPersonId: string;
   status: string;
   createdAt: Date;
-  tenantId:string;
+  tenantId: string;
   deliveryProducts: DeliveryProductInput[];
 }
+
+// Type corrigé pour les erreurs de validation
+interface ProductError {
+  productId?: string;
+  quantity?: string;
+  deliveredQuantity?: string;
+  returnedQuantity?: string;
+}
+
 interface ValidationErrors {
   deliveryPersonId?: string;
-  products?: Array<{
-    productId?: string;
-    quantity?: string;
-    deliveredQuantity?: string;
-    returnedQuantity?: string;
-  }>;
+  products?: ProductError[]; // Tableau d'erreurs de produits
 }
 
 const DELIVERY_STATUSES = [
@@ -70,16 +77,18 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
 
   const validateForm = useCallback((): boolean => {
     const newErrors: ValidationErrors = {};
+
     // Validation du livreur
     if (!deliveryPersonId.trim()) {
       newErrors.deliveryPersonId = "Le livreur est requis";
     }
+
     // Validation des produits
-    const productErrors: ValidationErrors["products"] = [];
+    const productErrors: ProductError[] = [];
     let hasProductError = false;
 
     products.forEach((product, index) => {
-      const productError: ValidationErrors["products"][0] = {};
+      const productError: ProductError = {};
 
       if (!product.productId.trim()) {
         productError.productId = "ID produit requis";
@@ -93,7 +102,6 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
         productError.deliveredQuantity = "Quantité livrée doit être ≥ 0";
         hasProductError = true;
       }
-
       if (product.returnedQuantity < 0) {
         productError.returnedQuantity = "Quantité retournée doit être ≥ 0";
         hasProductError = true;
@@ -132,12 +140,21 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
       setProducts(updated);
 
       // Nettoyer les erreurs pour ce champ spécifique
-      if (errors.products?.[index]?.[field]) {
+      if (
+        errors.products &&
+        errors.products[index] &&
+        errors.products[index][field]
+      ) {
         const newErrors = { ...errors };
-        if (newErrors.products?.[index]) {
-          delete newErrors.products[index][field];
+        if (newErrors.products && newErrors.products[index]) {
+          const updatedProductErrors = [...newErrors.products];
+          updatedProductErrors[index] = {
+            ...updatedProductErrors[index],
+            [field]: undefined,
+          };
+          newErrors.products = updatedProductErrors;
+          setErrors(newErrors);
         }
-        setErrors(newErrors);
       }
     },
     [products, errors]
@@ -154,30 +171,45 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
     (index: number) => {
       if (products.length > 1) {
         setProducts((prev) => prev.filter((_, i) => i !== index));
+
+        // Nettoyer les erreurs associées
+        if (errors.products) {
+          const updatedErrors = { ...errors };
+          if (updatedErrors.products) {
+            updatedErrors.products = updatedErrors.products.filter(
+              (_, i) => i !== index
+            );
+            setErrors(updatedErrors);
+          }
+        }
       }
     },
-    [products.length]
+    [products.length, errors]
   );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
+
     setIsSubmitting(true);
     try {
       const deliveryData: DeliveryData = {
         deliveryPersonId,
         status,
-        tenantId:tenantId ?? "",
+        tenantId: tenantId ?? "",
         createdAt: new Date(),
         deliveryProducts: products,
       };
+
       if (onSubmit) {
         await onSubmit(deliveryData);
       } else {
         console.log("Delivery submitted:", deliveryData);
       }
+
       // Réinitialiser le formulaire après succès
       setDeliveryPersonId("");
       setStatus("PENDING");
@@ -191,14 +223,14 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
       ]);
       setErrors({});
       onClose();
-      // router.push(`/invoice/${}`)
     } catch (error) {
       console.error("Erreur lors de la soumission:", error);
-      toast.error('Erreur de la soumission ')
+      toast.error("Erreur de la soumission");
     } finally {
       setIsSubmitting(false);
     }
   };
+
   const resetForm = useCallback(() => {
     setDeliveryPersonId("");
     setStatus("PENDING");
@@ -239,6 +271,7 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
             <X size={24} />
           </button>
         </div>
+
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Informations de livraison */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -290,6 +323,7 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
               </select>
             </div>
           </div>
+
           {/* Produits */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -307,6 +341,7 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
                 <span>Ajouter un produit</span>
               </button>
             </div>
+
             <div className="space-y-4">
               {products.map((product, index) => (
                 <div
@@ -354,10 +389,11 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
                       />
                       {errors.products?.[index]?.productId && (
                         <p className="text-red-500 text-xs mt-1">
-                          {errors.products[index].productId}
+                          {errors.products[index]?.productId}
                         </p>
                       )}
                     </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-1">
                         Quantité demandée *
@@ -382,7 +418,7 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
                       />
                       {errors.products?.[index]?.quantity && (
                         <p className="text-red-500 text-xs mt-1">
-                          {errors.products[index].quantity}
+                          {errors.products[index]?.quantity}
                         </p>
                       )}
                     </div>
@@ -411,7 +447,7 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
                       />
                       {errors.products?.[index]?.deliveredQuantity && (
                         <p className="text-red-500 text-xs mt-1">
-                          {errors.products[index].deliveredQuantity}
+                          {errors.products[index]?.deliveredQuantity}
                         </p>
                       )}
                     </div>
@@ -440,7 +476,7 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
                       />
                       {errors.products?.[index]?.returnedQuantity && (
                         <p className="text-red-500 text-xs mt-1">
-                          {errors.products[index].returnedQuantity}
+                          {errors.products[index]?.returnedQuantity}
                         </p>
                       )}
                     </div>
@@ -449,6 +485,7 @@ const FormDelivery: React.FC<FormDeliveryModalProps> = ({
               ))}
             </div>
           </div>
+
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
             <button

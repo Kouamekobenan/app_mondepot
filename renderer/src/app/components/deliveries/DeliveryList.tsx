@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "../forms/Button";
 import { deliveryDto } from "@/app/types/type";
@@ -55,8 +56,8 @@ export default function DeliveryList() {
     completed: 0,
     canceled: 0,
   });
-  const {user} = useAuth()
-const tenantId = user?.tenantId
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
   // Fonction pour calculer les statistiques
   const calculateStats = useCallback(async () => {
     try {
@@ -118,7 +119,9 @@ const tenantId = user?.tenantId
         }
 
         console.log("Paramètres de recherche:", params);
-        const response = await api.get(`/delivery/paginate/${tenantId}`, { params });
+        const response = await api.get(`/delivery/paginate/${tenantId}`, {
+          params,
+        });
         console.log("Réponse API:", response.data);
 
         if (response.data && Array.isArray(response.data.data)) {
@@ -130,9 +133,9 @@ const tenantId = user?.tenantId
         } else {
           throw new Error("Format de réponse invalide");
         }
-      } catch (error:unknown) {
+      } catch (error: unknown) {
         console.error("Erreur lors de la récupération des commandes:", error);
-      
+
         const apiError = error as ApiError;
         setError(
           apiError.response?.data?.message ||
@@ -144,7 +147,7 @@ const tenantId = user?.tenantId
         setLoading(false);
       }
     },
-    [limit, tenantId]
+    [tenantId]
   );
   // Gestionnaire de recherche avec debounce
   useEffect(() => {
@@ -522,9 +525,7 @@ const tenantId = user?.tenantId
                     </Link>
 
                     <Link href={`/invoice/${delivery.id}`}>
-                      <button
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md transition-colors duration-200"
-                      >
+                      <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md transition-colors duration-200">
                         <svg
                           className="h-4 w-4"
                           fill="none"

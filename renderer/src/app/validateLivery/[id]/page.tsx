@@ -1,5 +1,5 @@
 "use client";
-
+export const dynamic = "force-dynamic";
 import Navbar from "@/app/components/navbar/Navbar";
 import { useAuth } from "@/app/context/AuthContext";
 import api from "@/app/prisma/api";
@@ -25,7 +25,7 @@ export default function ValidateLivery() {
   const [error, setError] = useState<string>("");
   const params = useParams();
   const router = useRouter();
-  const deliveryId = params.id as string;
+  const deliveryId = params?.id as string;
   const { user } = useAuth();
   const tenantId = user?.tenantId;
 
@@ -530,7 +530,7 @@ export default function ValidateLivery() {
                             onChange={(e) =>
                               handleDeliveredQuantityChange(
                                 index,
-                                e.target.value
+                                Number(e.target.value)
                               )
                             }
                             className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-emerald-500 focus:ring-0 transition-colors duration-200 font-medium"
@@ -550,7 +550,7 @@ export default function ValidateLivery() {
                             onChange={(e) =>
                               handleReturnedQuantityChange(
                                 index,
-                                e.target.value
+                                Number(e.target.value)
                               )
                             }
                             className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring-0 transition-colors duration-200 font-medium"
